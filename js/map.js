@@ -97,11 +97,10 @@ function countPaths(map, capLimit=3){
 }
 
 function generateMap(){
-  for (let attempt=0; attempt<200; attempt++){
+  for (;;) {
     const grid = makeGrid();
     const p1 = carvePath(grid, 0, 0, CFG.ROWS-1, CFG.COLS-1);
     if (!p1) continue;
-    // 把第一条路之外的其它路面清空，仅保留起点终点，
     // 用禁止集强制第二条路不与第一条路重合（节点不相交 => 至少2条独立通路）。
     const blocked = new Set(p1.map(([r,c]) => r+','+c));
     const p2 = carvePath(grid, 0, 0, CFG.ROWS-1, CFG.COLS-1, blocked);
@@ -109,18 +108,19 @@ function generateMap(){
       return { grid, start:[0,0], end:[CFG.ROWS-1,CFG.COLS-1] };
     }
   }
-  // 兜底：返回主路图（正常随机会满足>=2）
-  const grid = makeGrid(); carvePath(grid,0,0,CFG.ROWS-1,CFG.COLS-1);
-  return { grid, start:[0,0], end:[CFG.ROWS-1,CFG.COLS-1] };
 }
 
 // 放置校验：模拟在(r,c)放障碍后，起点->终点是否仍>=2通路
 function canPlace(map, r, c){
+  if (r<0 || c<0 || r>=CFG.ROWS || c>=CFG.COLS) return false; // 越界保护
   if (map.grid[r][c] !== 0) return false; // 只能放空地
   map.grid[r][c] = 9; // 临时障碍
-  const n = countPaths(map, 3);
-  map.grid[r][c] = 0;
-  return n >= 2;
+  try {
+    const n = countPaths(map, 3);
+    return n >= 2;
+  } finally {
+    map.grid[r][c] = 0;
+  }
 }
 
 function findFirstEmpty(map){
