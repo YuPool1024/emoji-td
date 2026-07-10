@@ -14,7 +14,6 @@ function cumulativeGold(diffKey, w){
   let total = CFG.BASE_GOLD;
   let hpSum = 0;
   for (let k=1;k<=w;k++){ hpSum += waveTotalHP(diffKey,k); }
-  const waveRewards = 0;
   const perWave = d.f * ( (CFG.WAVE_REWARD_BASE*w) + CFG.WAVE_REWARD_PER*(w*(w+1)/2) );
   const killReward = hpSum / CFG.KILL_REWARD_DIV;
   total += perWave + killReward;

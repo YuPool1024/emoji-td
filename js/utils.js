@@ -11,6 +11,7 @@ const CFG = {
   WAVE_REWARD_PER: 12,
   KILL_REWARD_DIV: 20,        // 击杀奖 = enemyHP/20
   CLEAR_TIME: 30,             // 每波清完时间预算(s)
+  GOLD_TO_DPS: 0.18,          // 每金币可换取DPS（混合效费比，≈1/BLENDED_DPS）
 };
 
 // 难度档（见设计文档第7节）
