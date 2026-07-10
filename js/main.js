@@ -329,7 +329,12 @@
   }
 
   function updateHero(dt){
-    const h = g.hero; if (!h || !h.alive) return;
+    const h = g.hero;
+    // 英雄不存在或已阵亡：清除所有敌人的 stuck 标记，避免永久卡死
+    if (!h || !h.alive){
+      for (const en of g.enemies) en.stuck = false;
+      return;
+    }
     const hx = h.c*CELL+CELL/2, hy = h.r*CELL+CELL/2;
     const radius = h.radius*CELL;
     let stuckN = 0;
