@@ -5,7 +5,7 @@ const CFG = {
   TOWER_SLOTS_CAP: 24,        // 平衡模型：有效塔位上限
   BLENDED_DPS: 18,            // 每格平均DPS
   HERO_DPS_BONUS: 30,
-  MAX_DPS: 24*18 + 30,        // = 460 空间封顶
+  MAX_DPS: 24*18 + 30,        // = 462 空间封顶 (TOWER_SLOTS_CAP*BLENDED_DPS + HERO_DPS_BONUS)
   BASE_GOLD: 200,
   WAVE_REWARD_BASE: 40,
   WAVE_REWARD_PER: 12,
