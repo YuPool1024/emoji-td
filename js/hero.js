@@ -16,3 +16,4 @@ function heroUpgradeCost(h){ return 50 * h.level; }
 function reviveHero(h){ h.alive=true; h.hp=h.maxHp; }
 
 if (typeof module!=='undefined') module.exports = { makeHero, upgradeHero, heroUpgradeCost, reviveHero };
+else { window.makeHero = makeHero; window.upgradeHero = upgradeHero; window.heroUpgradeCost = heroUpgradeCost; window.reviveHero = reviveHero; }

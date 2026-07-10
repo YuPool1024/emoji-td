@@ -1,5 +1,5 @@
-const CFG = (typeof module !== 'undefined') ? require('./utils.js').CFG : window.CFG;
-const DIFF = (typeof module !== 'undefined') ? require('./utils.js').DIFFICULTY : window.DIFFICULTY;
+var CFG = (typeof module !== 'undefined') ? require('./utils.js').CFG : window.CFG;
+var DIFF = (typeof module !== 'undefined') ? require('./utils.js').DIFFICULTY : window.DIFFICULTY;
 
 const GameState = { MENU:'menu', PLAYING:'playing', WON:'won', LOST:'lost' };
 
@@ -36,4 +36,10 @@ function grantWaveReward(g){
 }
 
 if (typeof module !== 'undefined') module.exports = { GameState, createGame, startNextWave, onKill, grantWaveReward };
-else window.GameState = GameState;
+else {
+  window.GameState = GameState;
+  window.createGame = createGame;
+  window.startNextWave = startNextWave;
+  window.onKill = onKill;
+  window.grantWaveReward = grantWaveReward;
+}

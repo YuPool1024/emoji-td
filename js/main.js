@@ -306,7 +306,7 @@
       }
       if (target){
         const shot = tw.dps * FIRE_INTERVAL;
-        if (tw.armor!=null && target.armor>0 && tw.splash===0) target.hp -= shot*(1-target.armor);
+        if (target.armor>0 && tw.splash===0) target.hp -= shot*(1-target.armor);
         else target.hp -= shot;
         if (tw.slow>0) target.slowT = 1.0;
         if (tw.dot>0) target.hp -= tw.dot; // 简易点燃（即时）

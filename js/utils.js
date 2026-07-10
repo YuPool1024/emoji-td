@@ -1,5 +1,5 @@
 // 网格配置
-const CFG = {
+var CFG = {
   COLS: 16, ROWS: 10, CELL: 50,
   WAVES: 10,
   TOWER_SLOTS_CAP: 24,        // 平衡模型：有效塔位上限
@@ -15,7 +15,7 @@ const CFG = {
 };
 
 // 难度档（见设计文档第7节）
-const DIFFICULTY = {
+var DIFFICULTY = {
   easy:   { g:1.28, m:0.85, f:1.30, label:'保守' },
   normal: { g:1.32, m:1.00, f:1.00, label:'标准' },
   hard:   { g:1.34, m:1.15, f:0.85, label:'硬核' },

@@ -10,7 +10,7 @@ const ENEMY_TYPES = {
 
 // 生成第w波敌人列表（数量随难度m与波数递增）
 function spawnWave(w, diffKey){
-  const DIFF = (typeof module!=='undefined')?require('./utils.js').DIFFICULTY:window.DIFFICULTY;
+  var DIFF = (typeof module!=='undefined')?require('./utils.js').DIFFICULTY:window.DIFFICULTY;
   const m = DIFF[diffKey].m;
   const list = [];
   const n = (base)=> Math.max(1, Math.round(base * m * (1 + 0.12*(w-1))));
@@ -32,7 +32,7 @@ function buildPathNodes(grid){
 
 function makeEnemy(typeKey, wave, diffKey){
   const t = ENEMY_TYPES[typeKey];
-  const DIFF = (typeof module!=='undefined')?require('./utils.js').DIFFICULTY:window.DIFFICULTY;
+  var DIFF = (typeof module!=='undefined')?require('./utils.js').DIFFICULTY:window.DIFFICULTY;
   const hpScale = Math.pow(DIFF[diffKey].g, wave-1);
   const maxHp = Math.round(t.hp * hpScale);
   return { type:typeKey, emoji:t.emoji, hp:maxHp, maxHp, speed:t.speed, baseSpeed:t.speed,
@@ -40,3 +40,4 @@ function makeEnemy(typeKey, wave, diffKey){
 }
 
 if (typeof module!=='undefined') module.exports = { ENEMY_TYPES, spawnWave, makeEnemy, buildPathNodes };
+else { window.ENEMY_TYPES = ENEMY_TYPES; window.spawnWave = spawnWave; window.makeEnemy = makeEnemy; window.buildPathNodes = buildPathNodes; }

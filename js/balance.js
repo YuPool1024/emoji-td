@@ -1,5 +1,5 @@
-const CFG = (typeof module!=='undefined') ? require('./utils.js').CFG : window.CFG;
-const DIFF = (typeof module!=='undefined') ? require('./utils.js').DIFFICULTY : window.DIFFICULTY;
+var CFG = (typeof module!=='undefined') ? require('./utils.js').CFG : window.CFG;
+var DIFF = (typeof module!=='undefined') ? require('./utils.js').DIFFICULTY : window.DIFFICULTY;
 
 // 第w波总HP（T(w) = baseHP * m * g^(w-1)），baseHP 取标准波基准
 function waveTotalHP(diffKey, w){
@@ -33,3 +33,4 @@ function evaluate(diffKey, w){
 }
 
 if (typeof module!=='undefined') module.exports = { waveTotalHP, cumulativeGold, evaluate };
+else { window.waveTotalHP = waveTotalHP; window.cumulativeGold = cumulativeGold; window.evaluate = evaluate; }

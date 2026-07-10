@@ -24,3 +24,4 @@ function upgradeTower(tw){
 function upgradeCost(tw){ return Math.round(tw.cost * 0.8 * tw.level); }
 
 if (typeof module!=='undefined') module.exports = { TOWER_TYPES, makeTower, upgradeTower, upgradeCost };
+else { window.TOWER_TYPES = TOWER_TYPES; window.makeTower = makeTower; window.upgradeTower = upgradeTower; window.upgradeCost = upgradeCost; }

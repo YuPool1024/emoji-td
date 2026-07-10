@@ -1,4 +1,4 @@
-const CFG = (typeof module!=='undefined') ? require('./utils.js').CFG : window.CFG;
+var CFG = (typeof module!=='undefined') ? require('./utils.js').CFG : window.CFG;
 
 function makeGrid(){
   const g = [];
@@ -129,3 +129,4 @@ function findFirstEmpty(map){
 }
 
 if (typeof module!=='undefined') module.exports = { generateMap, countPaths, canPlace, findFirstEmpty, makeGrid, carvePath };
+else { window.generateMap = generateMap; window.countPaths = countPaths; window.canPlace = canPlace; window.findFirstEmpty = findFirstEmpty; window.makeGrid = makeGrid; window.carvePath = carvePath; }
