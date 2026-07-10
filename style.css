@@ -2,7 +2,13 @@ body { margin:0; background:#1e1e2e; color:#eee; font-family:system-ui,sans-seri
 #hud { font-size:18px; padding:8px; letter-spacing:1px; }
 #towerbar { display:flex; gap:8px; padding:8px; flex-wrap:wrap; }
 #towerbar .tower-btn { cursor:pointer; border:1px solid #555; border-radius:6px; padding:6px 10px; background:#2a2a3a; }
-#towerbar .tower-btn.selected { border-color:#ffd700; background:#3a3a2a; }
+#towerbar .tower-btn.sel { border-color:#ffd700; background:#3a3a2a; }
+#panel { min-height:44px; padding:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+#panel .panel-title { font-size:14px; color:#ffd700; width:100%; }
+#panel .panel-info { font-size:12px; color:#9ad; width:100%; }
+#panel button { cursor:pointer; border:1px solid #555; border-radius:6px; padding:6px 10px; background:#2a2a3a; color:#eee; }
+#panel button:disabled { opacity:.4; cursor:not-allowed; }
+#flash { min-height:18px; font-size:14px; color:#f96; padding:4px 8px; opacity:0; transition:opacity .3s; }
 #overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.7); flex-direction:column; gap:12px; }
 #overlay.show { display:flex; }
 canvas { background:#2b2b40; border:2px solid #444; }
