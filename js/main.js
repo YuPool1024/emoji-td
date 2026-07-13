@@ -22,6 +22,9 @@
   // 选中用于升级/出售的实体（塔或英雄）
   let selected = null; // { kind:'tower'|'hero', ref }
 
+  // ---- P2 UI: panel 实例 ----
+  const panels = { toast: null };
+
   // ---------- 视觉特效层 ----------
   const projectiles = [];   // 飞行中的投射物
   const hitEffects  = [];   // 命中爆点
@@ -240,13 +243,8 @@
   }
 
   function flash(msg){
-    const el = document.getElementById('flash');
-    if (el){
-      el.textContent = msg;
-      el.classList.add('show');
-      clearTimeout(flash._t);
-      flash._t = setTimeout(()=>{ el.classList.remove('show'); }, 1200);
-    }
+    if (panels.toast) panels.toast.show(msg);
+    else if (window.ui) window.ui.toast(msg);
   }
 
   function showWaveBanner(wave){
@@ -1261,6 +1259,10 @@
     update(dt); render();
     requestAnimationFrame(loop);
   }
+
+  // ---- P2 UI: 实例化 toast panel ----
+  panels.toast = window.createToastPanel();
+  panels.toast.mount(document.getElementById('flash'));
 
   initMuteBtn();
   initMenu();
