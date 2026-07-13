@@ -311,7 +311,12 @@
     for (const {l,v} of info) ht += `<div class="popup-info"><span class="label">${l}:</span>${v}</div>`;
     ht += `<button class="popup-btn popup-upgrade" ${g.gold<uc?'disabled':''}>⬆️ 升级 (💰${uc})</button>`;
     if (!h.alive){
-      ht += `<button class="popup-btn popup-revive" ${g.gold<h.reviveCost?'disabled':''}>💖 复活 (💰${h.reviveCost})</button>`;
+      // ---- P1.3 复活 popup：显示倒计时和半血说明 ----
+      const secLeft = Math.ceil(h.reviveTimer);
+      ht += `<div class="popup-info" style="color:var(--warning);font-weight:600;padding-top:6px;">💀 已阵亡 (半血复活)</div>`;
+      ht += `<div class="popup-info"><span class="label">⏳ 自动复活:</span>${secLeft}s 后 (半血)</div>`;
+      ht += `<button class="popup-btn popup-revive" ${g.gold<h.reviveCost?'disabled':''}>💖 立即复活 (💰${h.reviveCost}, 半血)</button>`;
+      // ---- end P1.3 ----
     } else {
       ht += `<div class="popup-info" style="color:var(--success);font-weight:600;padding-top:6px;">✨ 存活中</div>`;
     }
@@ -321,7 +326,8 @@
     const upBtn = popupEl.querySelector('.popup-upgrade');
     if (upBtn) upBtn.onclick = ()=>{ if (g.gold<uc) return; g.gold-=uc; window.upgradeHero(h); flash('英雄已升级'); SFX.upgrade(); renderHUD(); showHeroPopup(h); };
     const revBtn = popupEl.querySelector('.popup-revive');
-    if (revBtn) revBtn.onclick = ()=>{ if (g.gold<h.reviveCost) return; g.gold-=h.reviveCost; window.reviveHero(h); flash('英雄已复活'); SFX.revive(); renderHUD(); showHeroPopup(h); };
+    // ---- P1.3：手动复活传 instant=true，半血 ----
+    if (revBtn) revBtn.onclick = ()=>{ if (g.gold<h.reviveCost) return; g.gold-=h.reviveCost; window.reviveHero(h, true); flash('英雄已复活 (半血)'); SFX.revive(); renderHUD(); hidePopup(); };
   }
 
   // ---------- 伤害应用（投射物命中或即时）----------
@@ -734,6 +740,15 @@
   function updateHero(dt){
     const h = g.hero;
     if (!h || !h.alive){
+      // ---- P1.3 复活倒计时 ----
+      if (h && h.reviveTimer > 0) {
+        h.reviveTimer = Math.max(0, h.reviveTimer - dt);
+        if (h.reviveTimer <= 0) {
+          // 自动复活：半血
+          window.reviveHero(h, false);
+        }
+      }
+      // ---- end P1.3 ----
       for (const en of g.enemies) en.stuck = false;
       return;
     }
@@ -758,7 +773,13 @@
       }
     }
     for (const en of g.enemies) if (window.dist(en.x, en.y, hx, hy) > radius) en.stuck = false;
-    if (h.hp <= 0){ h.alive = false; flash('英雄阵亡，可花费复活'); showHeroPopup(h); }
+    if (h.hp <= 0){
+      h.alive = false;
+      h.reviveTimer = 60;  // P1.3: 60s 倒计时 [PLACEHOLDER]
+      h.hp = 0;
+      flash('英雄阵亡，可花费复活');
+      showHeroPopup(h);
+    }
     if (anyKill) SFX.kill();
   }
 
@@ -810,6 +831,34 @@
     }
     // 英雄
     if (g.hero){
+      const hx = g.hero.c*CELL+CELL/2, hy = g.hero.r*CELL+CELL/2;
+      // ---- P1.3 复活进度环 ----
+      if (!g.hero.alive && g.hero.reviveTimer > 0){
+        const progress = 1 - (g.hero.reviveTimer / 60);
+        // 背景环
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(hx, hy, CELL * 0.7, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        // 进度弧
+        ctx.beginPath();
+        ctx.arc(hx, hy, CELL * 0.7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+        ctx.strokeStyle = progress > 0.9 ? '#4ECDC4' : '#F6AD55';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        // 剩余秒数
+        ctx.font = 'bold 12px "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 3;
+        ctx.strokeText(Math.ceil(g.hero.reviveTimer)+'s', hx, hy - CELL * 0.95);
+        ctx.fillText(Math.ceil(g.hero.reviveTimer)+'s', hx, hy - CELL * 0.95);
+        ctx.restore();
+      }
+      // ---- end P1.3 ----
       ctx.font='26px serif';
       ctx.fillText(g.hero.emoji, g.hero.c*CELL+12, g.hero.r*CELL+36);
       ctx.strokeStyle='rgba(120,200,255,.4)';
