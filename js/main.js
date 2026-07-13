@@ -1117,10 +1117,66 @@
   function showEnd(win){
     const ov = document.getElementById('overlay');
     ov.className = 'overlay show';
-    ov.innerHTML = `<h1>${win?'🎉 胜利!':'💥 失败'}</h1>`+
-      `<p>${win?'恭喜守住所有 10 波！':'基地被攻破，再来一次吧'}</p>`+
-      `<button onclick="location.reload()">🔄 重新开始</button>`;
-    if (win) SFX.win(); else SFX.lose();
+
+    if (win) {
+      // 胜利：保持简洁
+      ov.innerHTML = `<h1>🎉 胜利!</h1>`+
+        `<p>恭喜守住所有 ${g.wave} 波！</p>`+
+        `<div class="end-btns">`+
+          `<button onclick="location.reload()">🔄 再来一局</button>`+
+        `</div>`;
+      SFX.win();
+    } else {
+      // ---- P1.2 失败复盘面板 ----
+      // 计算塔偏好统计
+      const towerCount = {};
+      for (const t of g.towerBuildHistory) {
+        towerCount[t] = (towerCount[t] || 0) + 1;
+      }
+      const towerEntries = Object.entries(towerCount).sort((a,b)=>b[1]-a[1]);
+      const towerSummary = towerEntries.length > 0
+        ? towerEntries.map(([k,v])=>{
+            const t = window.TOWER_TYPES[k];
+            return `${t.emoji}×${v}`;
+          }).join(' ')
+        : '无';
+
+      // 最高漏怪波
+      let maxLeakWave = 0, maxLeakCount = 0;
+      for (const wStr in g.leaksPerWave) {
+        const cnt = g.leaksPerWave[wStr];
+        if (cnt > maxLeakCount) { maxLeakCount = cnt; maxLeakWave = Number(wStr); }
+      }
+
+      // 分析建议
+      let hint = '';
+      const noAirTower = towerEntries.length === 0
+        || towerEntries.filter(([k])=>window.TOWER_TYPES[k]&&window.TOWER_TYPES[k].hitsAir).length === 0;
+      const noSplashTower = towerEntries.length === 0
+        || towerEntries.filter(([k])=>window.TOWER_TYPES[k]&&window.TOWER_TYPES[k].splash>0).length === 0;
+      if (noAirTower && g.leaks >= 3) {
+        hint = '提示: 缺少对空塔(⚡电塔/🎯狙塔/💣炮塔)，飞行怪拦不住';
+      } else if (g.wave >= 7 && noSplashTower && g.leaks >= 2) {
+        hint = '提示: 缺少范围塔(🔥火塔/💣炮塔)，重甲怪减伤严重';
+      } else if (g.leaks > 5) {
+        hint = '提示: 试试升级而非多建，或调整塔的位置';
+      } else if (g.leaks > 0) {
+        hint = '提示: 少量漏怪，注意波次节奏安排英雄';
+      }
+
+      ov.innerHTML = `<h1>💥 失败 — 第 ${g.wave} 波</h1>`+
+        `<div class="end-stats">`+
+          `<p>击杀: <b>${g.kills}</b> · 漏怪: <b>${g.leaks}</b>`+
+          (maxLeakCount > 0 ? ` · 最高漏怪波: W${maxLeakWave}(${maxLeakCount}个)` : '')+`</p>`+
+          `<p>塔系: ${towerSummary}</p>`+
+          (hint ? `<p class="end-hint">💡 ${hint}</p>` : '')+
+        `</div>`+
+        `<div class="end-btns">`+
+          `<button onclick="location.reload()">🔄 再来一局</button>`+
+          `<button onclick="location.reload()">📋 换难度</button>`+
+        `</div>`;
+      SFX.lose();
+    }
   }
 
   // ---------- 静音按钮 ----------
