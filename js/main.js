@@ -899,6 +899,22 @@
       ctx.lineWidth = 2;
       ctx.strokeRect(c*CELL+2, r*CELL+2, CELL-5, CELL-5);
       ctx.restore();
+
+      // ---- P1.1 悬停文字标签 ----
+      ctx.save();
+      ctx.font = 'bold 13px "Microsoft YaHei", sans-serif';
+      ctx.textAlign = 'center';
+      const labelX = c * CELL + CELL / 2;
+      const labelY = r * CELL - 8;
+      const airLabel = t.hitsAir ? '🛬✓' : '🛬✗';
+      const text = `射程${t.range}格 ${airLabel}`;
+      const tw = ctx.measureText(text).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.65)';
+      ctx.fillRect(labelX - tw/2 - 6, labelY - 15, tw + 12, 22);
+      ctx.fillStyle = t.hitsAir ? '#4ECDC4' : '#F56565';
+      ctx.fillText(text, labelX, labelY);
+      ctx.restore();
+      // ---- end P1.1 ----
     }
   }
 
