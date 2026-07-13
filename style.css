@@ -398,3 +398,14 @@ body {
 .onboard-dots .dot.active { background: #4ECDC4; }
 .onboard-skip { padding: 8px 20px; background: rgba(78,205,196,0.2); color: #4ECDC4; border: 1px solid #4ECDC4; border-radius: 8px; cursor: pointer; font-size: 14px; }
 .onboard-skip:hover { background: rgba(78,205,196,0.3); }
+
+/* P3.1 成就 */
+.ach-menu { margin-top: 16px; }
+.ach-menu button { padding: 8px 24px; font-size: 16px; background: rgba(255,215,0,0.15); border: 1px solid #FFD700; color: #FFD700; border-radius: 10px; cursor: pointer; }
+.ach-menu button:hover { background: rgba(255,215,0,0.25); }
+.ach-item { display: flex; align-items: center; gap: 10px; padding: 8px; margin: 4px 0; border-radius: 8px; text-align: left; }
+.ach-done { background: rgba(78,205,196,0.1); }
+.ach-locked { opacity: 0.5; }
+.ach-icon { font-size: 28px; width: 40px; text-align: center; }
+.ach-detail b { font-size: 15px; color: #fff; }
+.ach-detail small { font-size: 12px; color: #aaa; }

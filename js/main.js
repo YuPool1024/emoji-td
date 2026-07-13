@@ -441,6 +441,8 @@
   // ---------- 更新 ----------
   function update(dt){
     if (!g || g.state !== window.GameState.PLAYING) return;
+    // P3.1 游戏时长
+    if (g.duration !== undefined) g.duration += dt;
 
     // 倒计时期间冻结生成与敌人移动（允许点击摆放）
     if (countdown > 0){
@@ -1147,6 +1149,18 @@
       panels.end.show(win, g);
       if (win) SFX.win(); else SFX.lose();
     }
+    // P3.1: 胜利时检查成就
+    if (win && panels.achievements && panels.achievements.checkUnlocks){
+      var _newOnes = panels.achievements.checkUnlocks(g);
+      if (_newOnes.length && typeof window.ui !== 'undefined'){
+        // 显示解锁提示
+        var _toastMsgs = [];
+        for (var _i = 0; _i < _newOnes.length; _i++) {
+          _toastMsgs.push(_newOnes[_i].emoji + ' ' + _newOnes[_i].name);
+        }
+        window.ui.toast('🏆 解锁: ' + _toastMsgs.join(', '), 4000);
+      }
+    }
   }
 
   // ---------- 静音按钮 ----------
@@ -1205,6 +1219,9 @@
   // ---- T7: 实例化 onboarding panel ----
   panels.onboarding = window.createOnboardingPanel();
   panels.onboarding.mount(document.getElementById('onboarding'));
+  // ---- P3.1: 成就 panel ----
+  panels.achievements = window.createAchievementsPanel();
+  panels.achievements.mount(document.getElementById('overlay'));
 
   // ---- T4: 注册 panel action 监听 ----
   ui.on(ui.actions.START_GAME, ({diff}) => { if (window.startGame) window.startGame(diff); });
@@ -1238,6 +1255,8 @@
     // 回到升级前状态
     if (panels.popup) panels.popup.hide();
   });
+  // ---- P3.1: 成就 ----
+  ui.on(ui.actions.SHOW_ACHIEVEMENTS, () => { if (panels.achievements) panels.achievements.show(); });
 
   // ---- T5: 注册 popup 按钮的 actions ----
   ui.on(ui.actions.UPGRADE_TOWER, ({tw}) => {
