@@ -14,12 +14,14 @@
         '<button data-diff="normal">⚔️ 标准</button>' +
         '<button data-diff="hard">💀 硬核</button>' +
         '</div>' +
+        '<div class="hero-menu"><button data-hero-sel="show">🦸 英雄选择</button></div>' +
         '<div class="ach-menu"><button data-action="achieve">🏆 成就</button></div>';
       const btns = parent.querySelectorAll('[data-diff]');
       btns.forEach(btn => {
         btn.onclick = () => window.ui.emit(window.ui.actions.START_GAME, { diff: btn.dataset.diff });
       });
       parent.querySelector('[data-action="achieve"]').onclick = () => window.ui.emit(window.ui.actions.SHOW_ACHIEVEMENTS);
+      parent.querySelector('[data-hero-sel="show"]').onclick = () => window.ui.emit(window.ui.actions.SHOW_HERO_SELECT);
     }
     function hide(){
       if (!parent) return;

@@ -409,3 +409,16 @@ body {
 .ach-icon { font-size: 28px; width: 40px; text-align: center; }
 .ach-detail b { font-size: 15px; color: #fff; }
 .ach-detail small { font-size: 12px; color: #aaa; }
+
+/* P3.4 英雄选择 */
+.hero-menu { margin-top: 8px; }
+.hero-menu button { padding: 8px 24px; font-size: 16px; background: rgba(120,200,255,0.15); border: 1px solid #78C8FF; color: #78C8FF; border-radius: 10px; cursor: pointer; }
+.hero-menu button:hover { background: rgba(120,200,255,0.25); }
+.hero-list { display: flex; gap: 12px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+.hero-card { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-radius: 12px; cursor: pointer; background: rgba(255,255,255,0.05); border: 2px solid transparent; min-width: 200px; }
+.hero-card.hero-sel { border-color: #4ECDC4; background: rgba(78,205,196,0.1); }
+.hero-card.hero-locked { opacity: 0.5; cursor: not-allowed; }
+.hero-icon { font-size: 36px; }
+.hero-info b { color: #fff; font-size: 16px; }
+.hero-info small { color: #aaa; font-size: 12px; }
+.hero-lock { color: #F56565; font-size: 12px; }

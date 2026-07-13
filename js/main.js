@@ -197,7 +197,7 @@
     // 放置英雄（免费、唯一）
     if (g.map.grid[r][c]===1 && !g.hero){
       if (!window.canPlace(g.map, r, c)){ flash('英雄会堵死通路'); return; }
-      g.hero = window.makeHero(r,c);
+      g.hero = window.makeHero(window._selectedHeroType || 'warrior', r, c);
       g.map.grid[r][c] = 9;
       selected = { kind:'hero', ref:g.hero };
       showHeroPopup(g.hero);
@@ -1216,9 +1216,14 @@
   // ---- T5: 实例化 popup panel ----
   panels.popup = window.createPopupPanel();
   panels.popup.mount(document.getElementById('popup'));
+  // ---- P3.4: hero-select ----
+  panels.heroSelect = window.createHeroSelectPanel();
+  panels.heroSelect.mount(document.getElementById('overlay'));
   // ---- T7: 实例化 onboarding panel ----
   panels.onboarding = window.createOnboardingPanel();
   panels.onboarding.mount(document.getElementById('onboarding'));
+  // ---- P3.4: 默认英雄 ----
+  window._selectedHeroType = 'warrior';
   // ---- P3.1: 成就 panel ----
   panels.achievements = window.createAchievementsPanel();
   panels.achievements.mount(document.getElementById('overlay'));
@@ -1257,6 +1262,8 @@
   });
   // ---- P3.1: 成就 ----
   ui.on(ui.actions.SHOW_ACHIEVEMENTS, () => { if (panels.achievements) panels.achievements.show(); });
+  // ---- P3.4: 英雄选择 ----
+  ui.on(ui.actions.SHOW_HERO_SELECT, () => { if (panels.heroSelect) panels.heroSelect.show(); });
 
   // ---- T5: 注册 popup 按钮的 actions ----
   ui.on(ui.actions.UPGRADE_TOWER, ({tw}) => {

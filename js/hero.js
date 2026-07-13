@@ -1,8 +1,16 @@
-function makeHero(r, c){
-  return { r, c, emoji:'🦸', level:1, hp:120, maxHp:120, radius:1.6,
-           stickCount:2,        // = 1 + level
-           dps:30, alive:true, reviveCost:60, attackCd:0,
-           reviveTimer: -1 };   // P1.3: -1=alive, >0=counting down in seconds, 0=auto-revive ready
+// P3.4: 多英雄
+var HERO_TYPES = {
+  warrior: { emoji:'🦸', hp:120, maxHp:120, radius:1.6, stickCount:2, dps:30, reviveCost:60, unlock:null, desc:'群定身+中等 DPS' },
+  mage:    { emoji:'🧙', hp:80,  maxHp:80,  radius:2.0, stickCount:0, dps:20, reviveCost:80, unlock:'full_comp', desc:'范围真 DoT + 减速', dot:10 },
+  hunter:  { emoji:'🏹', hp:100, maxHp:100, radius:4.0, stickCount:2, dps:50, reviveCost:100, unlock:'pacifist', desc:'单体高爆发 + 长程' },
+};
+
+function makeHero(type, r, c){
+  type = type || 'warrior';
+  var h = HERO_TYPES[type] || HERO_TYPES.warrior;
+  return { type:type, r, c, emoji:h.emoji, level:1, hp:h.hp, maxHp:h.maxHp,
+           radius:h.radius, stickCount:h.stickCount, dps:h.dps, alive:true, reviveCost:h.reviveCost,
+           attackCd:0, reviveTimer:-1, dot:h.dot||0 };
 }
 
 function upgradeHero(h){
@@ -26,5 +34,5 @@ function reviveHero(h, instant){
   return h;
 }
 
-if (typeof module!=='undefined') module.exports = { makeHero, upgradeHero, heroUpgradeCost, reviveHero };
-else { window.makeHero = makeHero; window.upgradeHero = upgradeHero; window.heroUpgradeCost = heroUpgradeCost; window.reviveHero = reviveHero; }
+if (typeof module!=='undefined') module.exports = { HERO_TYPES, makeHero, upgradeHero, heroUpgradeCost, reviveHero };
+else { window.HERO_TYPES = HERO_TYPES; window.makeHero = makeHero; window.upgradeHero = upgradeHero; window.heroUpgradeCost = heroUpgradeCost; window.reviveHero = reviveHero; }
