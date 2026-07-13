@@ -15,6 +15,12 @@ function createGame(diffKey){
     towers: [], enemies: [], hero: null,
     selectedTowerType: null,
     spawnQueue: [],
+    // ---- P1.2 统计埋点 ----
+    kills: 0,
+    leaks: 0,
+    leaksPerWave: {},       // { 1: 3, 2: 0, ... }
+    towerBuildHistory: [],  // ['arrow','tesla','arrow', ...]
+    // ---- end ----
   };
 }
 
@@ -22,6 +28,7 @@ function createGame(diffKey){
 function startNextWave(g){
   g.wave++;
   if (g.wave > CFG.WAVES){ g.state = GameState.WON; return; }
+  g.leaksPerWave[g.wave] = 0;  // P1.2: 预初始化下一波漏怪计数为 0
   const list = (typeof module !== 'undefined') ? require('./enemies.js').spawnWave(g.wave, g.diff) : window.spawnWave(g.wave, g.diff);
   g.spawnQueue = list.map(t => t);
 }
@@ -29,6 +36,7 @@ function startNextWave(g){
 // 结算击杀奖励
 function onKill(g, enemy){
   g.gold += enemy.gold; // 击杀奖 = 敌人金币价值
+  g.kills++;             // P1.2: 累计击杀计数
 }
 
 function grantWaveReward(g){
