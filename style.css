@@ -387,3 +387,14 @@ body {
 /* P2.3 暂停/倍速 HUD 样式 (前置) */
 .hud-item.pause { background: rgba(245,101,101,.3); color: #F56565; font-weight: 700; }
 .hud-item.speed { background: rgba(78,205,196,.3); color: #4ECDC4; font-weight: 700; }
+
+/* P2.4 新手引导卡 */
+#onboarding { position: absolute; left: 0; right: 0; bottom: 50px; display: none; justify-content: center; z-index: 50; pointer-events: none; }
+#onboarding.show { display: flex; }
+.onboard-card { background: rgba(20,20,40,0.92); padding: 24px 36px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); max-width: 540px; text-align: center; pointer-events: auto; }
+.onboard-text { font-size: 18px; line-height: 1.5; color: #fff; margin-bottom: 16px; }
+.onboard-dots { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
+.onboard-dots .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3); }
+.onboard-dots .dot.active { background: #4ECDC4; }
+.onboard-skip { padding: 8px 20px; background: rgba(78,205,196,0.2); color: #4ECDC4; border: 1px solid #4ECDC4; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.onboard-skip:hover { background: rgba(78,205,196,0.3); }

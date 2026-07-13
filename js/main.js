@@ -141,11 +141,20 @@
     g.distField = buildDistField(g.map.grid, g.map.end);
     g.regionEmoji = assignRegionEmojis(g.map.grid);  // 给每片障碍区域分配 emoji
     selected = null;
-    countdown = 3.5;
-    countdownLastSec = -1;
-    window.startNextWave(g);               // 排好第一波，生成由倒计时门控
-    buildTowerBar();
-    renderHUD();
+
+    // 带引导卡的启动：非硬档出引导，硬档直接倒计时
+    const startCountdown = () => {
+      countdown = 3.5;
+      countdownLastSec = -1;
+      window.startNextWave(g);
+      buildTowerBar();
+      renderHUD();
+    };
+    if (diff === 'hard' || !panels.onboarding) {
+      startCountdown();
+    } else {
+      panels.onboarding.start(startCountdown);
+    }
   };
 
   // ---------- 塔选择栏 ----------
@@ -1161,6 +1170,9 @@
   // ---- T5: 实例化 popup panel ----
   panels.popup = window.createPopupPanel();
   panels.popup.mount(document.getElementById('popup'));
+  // ---- T7: 实例化 onboarding panel ----
+  panels.onboarding = window.createOnboardingPanel();
+  panels.onboarding.mount(document.getElementById('onboarding'));
 
   // ---- T4: 注册 panel action 监听 ----
   ui.on(ui.actions.START_GAME, ({diff}) => { if (window.startGame) window.startGame(diff); });
