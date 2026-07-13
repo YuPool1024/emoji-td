@@ -35,6 +35,11 @@
   let countdownLastSec = -1;// 上一次播报过的整秒数
   let waveBanner = null;    // 波次横幅
   let mouseGrid  = null;    // 鼠标在 canvas 内的格子坐标
+  // ---- P2.3 暂停/倍速 ----
+  let paused = false;
+  let speedMul = 1;
+  let tickAcc = 0;
+  const TICK_DT = 0.05;     // 固定时间步长
 
   // 障碍物 emoji 池（每片连通的障碍区域分配同一种）
   const OBSTACLE_EMOJIS = ['⛰️', '🗻', '🌋', '🌲', '🌵', '🪨', '🌊'];
@@ -1093,7 +1098,7 @@
 
   function renderHUD(){
     // 包装 hud panel —— T3 前向兼容. 全 state 传, panel 内做签名比对去重
-    if (panels.hud) panels.hud.update({ game: g });
+    if (panels.hud) panels.hud.update({ game: g, paused, speedMul });
   }
   function showEnd(win){
     // T4: 转发到 end panel
@@ -1125,8 +1130,18 @@
   function loop(now){
     // 修复[原因3 硬化]：clamp 下界为 0，防止系统时钟回退（now<last）产生负 dt，
     // 负 dt 会让 tw.cd -= dt 变成 cd 递增，导致冷却被无限拉长（塔永久不开火）。
-    const dt = Math.max(0, Math.min(0.05, (now-last)/1000)); last = now;
-    update(dt); render();
+    const rawDt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;
+    // ---- P2.3 累加器（固定步长，防止 dt *= speedMul 被 clamp 吃掉）----
+    if (!paused){
+      tickAcc += rawDt * speedMul;
+      let ticks = 0;
+      while (tickAcc >= TICK_DT && ticks < 4){
+        update(TICK_DT);
+        tickAcc -= TICK_DT;
+        ticks++;
+      }
+    }
+    render();
     requestAnimationFrame(loop);
   }
 
@@ -1206,5 +1221,24 @@
 
   initMuteBtn();
   initMenu();
+
+  // ---- P2.3 全局键盘快捷键 ----
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (!g) return;
+    if (e.code === 'Space'){
+      e.preventDefault();
+      paused = !paused;
+      panels.hud.update({ game: g, paused, speedMul });
+      flash(paused ? '⏸ 暂停' : '▶️ 继续');
+    } else if (e.code === 'Digit1'){
+      speedMul = 1; panels.hud.update({ game: g, paused, speedMul });
+    } else if (e.code === 'Digit2'){
+      speedMul = 1.5; panels.hud.update({ game: g, paused, speedMul }); flash('×1.5 倍速');
+    } else if (e.code === 'Digit3'){
+      speedMul = 2; panels.hud.update({ game: g, paused, speedMul }); flash('×2 倍速');
+    }
+  });
+
   requestAnimationFrame(loop);
 })();
