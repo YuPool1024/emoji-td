@@ -23,10 +23,13 @@ const ENEMY_FAMILIES = {
 };
 
 const ENEMY_TIERS = {
-  normal: { hpMul: 1.0, speedMul: 1.0, goldMul: 1.0, size: 1.0, badge: '' },
-  elite:  { hpMul: 3.0, speedMul: 0.9, goldMul: 2.5, size: 1.2, badge: '⭐' },
-  boss:   { hpMul: 10.0, speedMul: 0.7, goldMul: 10.0, size: 1.5, badge: '👑' },
+  normal: { hpMul: 1.0, speedMul: 1.0, goldMul: 1.0, size: 1.0, badge: '',  attackPower: 5 },   // [P11] 每秒对英雄的伤害
+  elite:  { hpMul: 3.0, speedMul: 0.9, goldMul: 2.5, size: 1.2, badge: '⭐', attackPower: 10 },
+  boss:   { hpMul: 10.0, speedMul: 0.7, goldMul: 10.0, size: 1.5, badge: '👑', attackPower: 20 },
 };
+
+// [P11] 按家族修饰 attackPower: swarm 多群低伤, demon 重甲猛捶, shadow/deep 中等
+const ATTACK_POWER_FAMILY_MUL = { swarm: 0.8, shadow: 1.0, demon: 1.3, deep: 1.1 };
 
 // 生成第 w 波敌人列表，使用配方
 function spawnWave(w, diffKey){
@@ -53,6 +56,9 @@ function makeEnemy(familyKey, wave, diffKey, tier){
   const maxHp = Math.round(fam.hp * hpScale * tierCfg.hpMul);
   const iconIdx = Math.min(wave - 1, fam.icons.length - 1);
   const baseIcon = fam.icons[iconIdx];
+  // [P11] 敌人对英雄的每秒伤害 = tier.attackPower × family 修饰
+  const familyMul = ATTACK_POWER_FAMILY_MUL[familyKey] != null ? ATTACK_POWER_FAMILY_MUL[familyKey] : 1;
+  const attackPower = tierCfg.attackPower * familyMul;
   return {
     type: familyKey,
     tier: tier || 'normal',
@@ -62,8 +68,9 @@ function makeEnemy(familyKey, wave, diffKey, tier){
     speed: fam.speed * tierCfg.speedMul, baseSpeed: fam.speed * tierCfg.speedMul,
     gold: Math.round(fam.gold * tierCfg.goldMul),
     air: fam.air, armor: fam.armor,
+    attackPower,                                          // [P11] 撞到英雄时每秒造成此伤害
     sizeMul: tierCfg.size,
-    slowT: 0, stuck: false,
+    slowT: 0, stuck: false, stuckByHero: false,           // [P11] stuckByHero: 撞英雄格停下
     x: 0, y: 0, dead: false,
   };
 }

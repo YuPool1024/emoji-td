@@ -9,7 +9,7 @@ const { makeHero, upgradeHero, heroUpgradeCost, reviveHero } = require('../js/he
 const { GameState, createGame, startNextWave, onKill, grantWaveReward } = require('../js/game.js');
 
 const CELL = CFG.CELL;
-const FIRE_INTERVAL = 0.5;
+// [P9] FIRE_INTERVAL 全局常量移除; 每塔自带 fireInterval
 const MOVE = 0.6;
 const SPAWN_GAP = 0.6;
 const DT = 0.05;            // 主循环 dt 上限
@@ -38,28 +38,43 @@ function buildDistField(grid, end){
   }
   return field;
 }
-function nextStep(field, grid, r, c, fromR, fromC){
+function nextStep(field, grid, r, c, fromR, fromC, en){
   const R = CFG.ROWS, C = CFG.COLS;
   const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
-  let candidates = [];
+  const best = [];
+  const others = [];
   for (const [dr,dc] of dirs){
     const nr=r+dr, nc=c+dc;
     if (nr<0||nc<0||nr>=R||nc>=C) continue;
     if (grid[nr][nc]!==1) continue;
     if (nr===fromR && nc===fromC) continue;
-    if (field[nr][nc] < field[r][c]) candidates.push([nr,nc]);
+    if (field[nr][nc] < field[r][c]) best.push([nr,nc]);
+    else others.push([nr,nc]);
   }
-  if (candidates.length === 0){
+  if (best.length === 0 && others.length === 0){
     for (const [dr,dc] of dirs){
       const nr=r+dr, nc=c+dc;
       if (nr<0||nc<0||nr>=R||nc>=C) continue;
       if (grid[nr][nc]!==1) continue;
       if (nr===fromR && nc===fromC) continue;
-      candidates.push([nr,nc]);
+      others.push([nr,nc]);
     }
+    if (others.length === 0) return null;
   }
-  if (candidates.length === 0) return null;
-  return choice(candidates);
+  const lastRand = !!(en && en._lastRand);
+  const wantBest = lastRand ? true : (Math.random() < 0.80);
+  let pool, wasRand = false;
+  if (wantBest){
+    if (best.length > 0) pool = best;
+    else { pool = others; wasRand = false; }
+  } else {
+    if (others.length > 0){ pool = others; wasRand = true; }
+    else if (best.length > 0){ pool = best; wasRand = false; }
+    else return null;
+  }
+  const nx = pool[Math.floor(Math.random() * pool.length)];
+  if (en) en._lastRand = wasRand;
+  return nx;
 }
 
 // ---------- 一个 competent 的 AI 玩家 ----------
@@ -87,7 +102,7 @@ function aiSpend(g){
     // 建英雄（免费唯一，放在某可建格）
     if (!g.hero){
       const cells = buildableCells(g);
-      if (cells.length){ const {r,c} = cells[0]; g.hero = makeHero(r,c); g.map.grid[r][c]=9; }
+      if (cells.length){ const {r,c} = cells[0]; g.hero = makeHero(r,c); g.distField = buildDistField(g.map.grid, g.map.end); }
     }
     let placed = false;
     // 按轮换顺序找第一种买得起且还能建的塔型
@@ -103,15 +118,19 @@ function aiSpend(g){
       const tw = makeTower(type, r, c);
       g.towers.push(tw);
       g.map.grid[r][c] = 9;
+      // [P8 mirror] 塔落下后重建距离场, 让敌人按新地图路径寻路
+      g.distField = buildDistField(g.map.grid, g.map.end);
       placed = true;
       break;
     }
     if (placed) continue;
-    // 升级：挑 dps 最高且买得起的塔
+    // 升级：挑实时 dps (damage/fireInterval) 最高且买得起的塔
     let bestTw = null, bestCost = Infinity;
+    let bestRealDps = -1;
     for (const tw of g.towers){
       const uc = upgradeCost(tw);
-      if (uc <= g.gold && tw.dps > (bestTw?bestTw.dps:-1)){ bestTw = tw; bestCost = uc; }
+      const realDps = tw.damage / tw.fireInterval;
+      if (uc <= g.gold && realDps > bestRealDps){ bestTw = tw; bestCost = uc; bestRealDps = realDps; }
     }
     if (bestTw){ g.gold -= bestCost; upgradeTower(bestTw); continue; }
     // 升级英雄
@@ -128,7 +147,8 @@ function updateEnemies(g, dt){
     if (en.dead) continue;
     let sp = en.baseSpeed;
     if (en.slowT>0){ sp *= 0.5; en.slowT -= dt; }
-    if (en.stuck){ sp = 0; }
+    // [P11 mirror] stuck + stuckByHero 都让 sp=0
+    if (en.stuck || en.stuckByHero){ sp = 0; }
     const tx = en.nc*CELL+CELL/2, ty = en.nr*CELL+CELL/2;
     const dx = tx-en.x, dy = ty-en.y, d = Math.hypot(dx,dy);
     const step = sp*CELL*dt*MOVE;
@@ -144,8 +164,17 @@ function updateEnemies(g, dt){
         if (global.__DBG) DBG.leaks++;
         continue;
       }
-      const nx = nextStep(g.distField, g.map.grid, en.cr, en.cc, en.fr, en.fc);
-      if (nx){ en.nr = nx[0]; en.nc = nx[1]; }
+      const nx = nextStep(g.distField, g.map.grid, en.cr, en.cc, en.fr, en.fc, en);
+      if (nx){
+        // [P11 mirror] 下一步是 hero 格则 stuckByHero, 原地停下; 否则正常前进
+        if (g.hero && g.hero.alive && nx[0] === g.hero.r && nx[1] === g.hero.c){
+          en.stuckByHero = true;
+          en.nr = en.cr; en.nc = en.cc;
+        } else {
+          en.stuckByHero = false;
+          en.nr = nx[0]; en.nc = nx[1];
+        }
+      }
     }
   }
   g.enemies = g.enemies.filter(e=>!e.dead);
@@ -167,8 +196,9 @@ function updateTowers(g, dt){
       if (d < best){ best=d; target=en; }
     }
     if (target){
-      const shot = tw.dps * FIRE_INTERVAL;
-      tw.cd = FIRE_INTERVAL;  // 先重置冷却（与 main.js 一致）
+      // [P9] 单发伤害来自 tw.damage, 冷却来自 tw.fireInterval (mirror main.js)
+      const shot = tw.damage;
+      tw.cd = tw.fireInterval;  // 先重置冷却（与 main.js 一致）
       if (target.armor>0 && tw.splash===0) target.hp -= shot*(1-target.armor);
       else target.hp -= shot;
       if (tw.slow>0) target.slowT = 1.0;
@@ -192,22 +222,29 @@ function updateTowers(g, dt){
 
 function updateHero(g, dt){
   const h = g.hero;
-  if (!h || !h.alive){ for (const en of g.enemies) en.stuck = false; return; }
+  if (!h || !h.alive){ for (const en of g.enemies) { en.stuck = false; en.stuckByHero = false; } return; }
   const hx = h.c*CELL+CELL/2, hy = h.r*CELL+CELL/2;
   const radius = h.radius*CELL;
   let stuckN = 0;
+  // [P11 mirror] 踩到 hero 格的敌人才反伤英雄; 全部敌人都在 hero 主动反击范围
   for (const en of g.enemies){
     if (en.dead) continue;
     const d = dist(en.x, en.y, hx, hy);
     if (d <= radius){
-      h.hp -= 4*dt;
-      en.hp -= h.dps*dt;
-      if (en.hp<=0){ en.dead=true; onKill(g, en); }
+      en.hp -= h.dps*dt;                            // 英雄主动攻击
+      if (en.stuckByHero){
+        h.hp -= en.attackPower * dt;                // 反伤
+      }
+      if (en.hp<=0){ en.dead=true; en.stuckByHero=false; onKill(g, en); }
       if (stuckN < h.stickCount){ en.stuck = true; stuckN++; }
     }
   }
   for (const en of g.enemies) if (dist(en.x, en.y, hx, hy) > radius) en.stuck = false;
-  if (h.hp <= 0){ h.alive = false; }
+  if (h.hp <= 0){
+    h.alive = false;
+    // [P11 mirror] 英雄死, 释放所有 stuckByHero 敌人
+    for (const en of g.enemies) en.stuckByHero = false;
+  }
 }
 
 // ---------- 一局完整模拟 ----------
@@ -237,8 +274,9 @@ function simulate(diffKey, seedLog){
       const en = makeEnemy(family, g.wave, g.diff, tier);
       const [sr,sc] = g.map.start;
       en.cr = sr; en.cc = sc; en.fr = -1; en.fc = -1;
+      en._lastRand = false;
       en.x = sc*CELL+CELL/2; en.y = sr*CELL+CELL/2;
-      const first = nextStep(g.distField, g.map.grid, sr, sc, -1, -1);
+      const first = nextStep(g.distField, g.map.grid, sr, sc, -1, -1, en);
       en.nr = first ? first[0] : sr; en.nc = first ? first[1] : sc;
       g.enemies.push(en);
       spawnTimer = SPAWN_GAP;
@@ -255,7 +293,8 @@ function simulate(diffKey, seedLog){
     }
   }
   if (steps >= MAX_STEPS) throw new Error('模拟超时（可能死循环），diff='+diffKey);
-  const totalDps = g.towers.reduce((s,t)=>s+t.dps,0) + (g.hero?g.hero.dps:0);
+  // [P9] 总实时 dps = 每塔 damage/fireInterval 之和 + 英雄 dps (英雄保留连续伤害模型)
+  const totalDps = g.towers.reduce((s,t)=>s + t.damage/t.fireInterval, 0) + (g.hero?g.hero.dps:0);
   return {
     diff: diffKey,
     state: g.state,

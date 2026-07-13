@@ -6,7 +6,7 @@
   'use strict';
 
   const CELL = window.CFG.CELL;
-  const FIRE_INTERVAL = 0.5;
+  // [P9] 移除全局 FIRE_INTERVAL; 每塔自带 fireInterval (见 towers.js TOWER_TYPES)
   // 出口/目标图标的统一缩放：按方格尺寸等比缩放（留边距、不变形），
   // 出口与目标共用同一比例与对齐方式，确保视觉一致。
   const ICON_SCALE = 0.72;
@@ -116,28 +116,48 @@
     return field;
   }
 
-  // 给定当前格与来源格，返回下一个要走的路面格（岔路随机选）
-  function nextStep(field, grid, r, c, fromR, fromC){
+  // 给定当前格与来源格，返回下一个要走的路面格。
+  // 80% 概率走最优 (distance 减小) 方向, 20% 走其他可走方向; 单敌 20% 不会连续 2 次。
+  // en 是当前敌人对象, 用于记忆 _lastRand 状态; 可为 undefined (退化纯随机)
+  function nextStep(field, grid, r, c, fromR, fromC, en){
+    const R = window.CFG.ROWS, C = window.CFG.COLS;
     const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
-    let candidates = [];
+    const best = [];     // distance 严格减小 (朝终点)
+    const others = [];   // 其他可走邻居 (绕远/平移)
     for (const [dr,dc] of dirs){
       const nr=r+dr, nc=c+dc;
-      if (nr<0||nc<0||nr>=window.CFG.ROWS||nc>=window.CFG.COLS) continue;
+      if (nr<0||nc<0||nr>=R||nc>=C) continue;
       if (grid[nr][nc]!==1) continue;
       if (nr===fromR && nc===fromC) continue;
-      if (field[nr][nc] < field[r][c]) candidates.push([nr,nc]);
+      if (field[nr][nc] < field[r][c]) best.push([nr,nc]);
+      else others.push([nr,nc]);
     }
-    if (candidates.length === 0){
+    // 兜底: best 空 (撞塔死路), 把所有合法邻居当 others (强制 80 行为)
+    if (best.length === 0 && others.length === 0){
       for (const [dr,dc] of dirs){
         const nr=r+dr, nc=c+dc;
-        if (nr<0||nc<0||nr>=window.CFG.ROWS||nc>=window.CFG.COLS) continue;
+        if (nr<0||nc<0||nr>=R||nc>=C) continue;
         if (grid[nr][nc]!==1) continue;
         if (nr===fromR && nc===fromC) continue;
-        candidates.push([nr,nc]);
+        others.push([nr,nc]);
       }
+      if (others.length === 0) return null;
     }
-    if (candidates.length === 0) return null;
-    return window.choice(candidates);
+    // 80/20 决策 + 不连续两次 20% 保护
+    const lastRand = !!(en && en._lastRand);
+    const wantBest = lastRand ? true : (Math.random() < 0.80);
+    let pool, wasRand = false;
+    if (wantBest){
+      if (best.length > 0) pool = best;
+      else { pool = others; wasRand = false; }       // best 空 → 任何邻居都算"非随机"
+    } else {
+      if (others.length > 0){ pool = others; wasRand = true; }
+      else if (best.length > 0){ pool = best; wasRand = false; }  // 20% 但 others 空, 退化
+      else return null;
+    }
+    const nx = pool[Math.floor(Math.random() * pool.length)];
+    if (en) en._lastRand = wasRand;
+    return nx;
   }
 
   // ---------- 菜单 ----------
@@ -170,11 +190,8 @@
       // P3.3: 恢复 Math.random
       if (typeof window._restoreRandom === 'function') window._restoreRandom();
     };
-    if (diff === 'hard' || !panels.onboarding) {
-      startCountdown();
-    } else {
-      panels.onboarding.start(startCountdown);
-    }
+    // [P10] 移除 onboarding 引导层: 直接走倒计时 (无论难度)
+    startCountdown();
   };
 
   // ---------- 塔选择栏 ----------
@@ -240,6 +257,8 @@
     g.towers.push(tw);
     g.towerBuildHistory.push(tw.type);  // P1.2: 建塔历史
     g.map.grid[r][c] = 9;
+    // [P8] 塔落下后重建距离场, 让敌人按新地图路径寻路 (避免塔挡路但不重算导致乱走)
+    g.distField = buildDistField(g.map.grid, g.map.end);
     _placeVer++;
     g.selectedTowerType = null; // 每次部署后清除选择，下次需重新点
     selected = { kind:'tower', ref:tw };
@@ -257,8 +276,9 @@
   function tryPlaceHero(r, c){
     if (g.map.grid[r][c]!==1){ flash('此处不可部署英雄'); return; }
     if (!window.canPlace(g.map, r, c)){ flash('英雄会堵死通路'); return; }
+    if (g.hero){ flash('英雄已部署'); return; }
     g.hero = window.makeHero(g.selectedHeroType, r, c);
-    g.map.grid[r][c] = 9;
+    // [P11] 英雄不再设 grid=9, 不阻塞 distField, 敌人可在该格通行 (撞 hero 时停下攻击)
     _placeVer++;
     g.selectedHeroType = null;  // 清除部署模式
     selected = { kind:'hero', ref:g.hero };
@@ -359,7 +379,8 @@
 
   function fireTower(tw, target, fromX, fromY){
     SFX.fire(tw.type);
-    const shot = tw.dps * FIRE_INTERVAL;
+    // [P9] 单次伤害来自 tw.damage, 不再用全局 FIRE_INTERVAL × dps 换算
+    const shot = tw.damage;
     if (tw.instantHit){
       // 电塔 / 狙塔：即时命中 + 视觉爆点
       applyTowerDamage(target, tw, shot, target.x, target.y);
@@ -515,8 +536,9 @@
       const en = window.makeEnemy(family, g.wave, g.diff, tier);
       const [sr,sc] = g.map.start;
       en.cr = sr; en.cc = sc; en.fr = -1; en.fc = -1;
+      en._lastRand = false;   // [P8] 寻路 80/20 状态, 防止连续 2 次走 20% 随机路径
       en.x = sc*CELL+CELL/2; en.y = sr*CELL+CELL/2;
-      const first = nextStep(g.distField, g.map.grid, sr, sc, -1, -1);
+      const first = nextStep(g.distField, g.map.grid, sr, sc, -1, -1, en);
       en.nr = first ? first[0] : sr; en.nc = first ? first[1] : sc;
       g.enemies.push(en);
       spawnTimer = 0.6;
@@ -574,6 +596,8 @@
     const mTop = 3, mBot = 4;                 // 上下留白
     const emojiSize = Math.round(CELL * 0.40);
     const emojiCy = cellTop + mTop + emojiSize*0.5;   // emoji 垂直中心
+    const towerType = window.TOWER_TYPES && window.TOWER_TYPES[tw.type];
+    const towerColor = towerType ? towerType.color : '#9cd';   // lv2 发光主题色
 
     // 石塔从 emoji 之下延伸到 cellBot-mBot
     const twBottom = cellBot - mBot;
@@ -672,16 +696,38 @@
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(tw.emoji, cx, emojiCy);
 
-    // P2.2: tier-3 金边光圈
-    if (tw.level >= 3){
+    // P2.2 + P7: 等级发光 (lv1 无; lv2 主题色; lv3 终极金), 呼吸脉动
+    //   发光强度比单纯 shadowBlur 更稳: 多层半透明圆叠加, 单帧 drawCall 数量可控
+    if (tw.level >= 2){
+      const isMax = tw.level >= 3;
+      const baseGlow = isMax ? '#FFD700' : towerColor;     // lv3 = 金; lv2 = 塔主题色
+      // 呼吸: 0..1 循环 (lv2 较快, lv3 更慢更深)
+      const period = isMax ? 1.6 : 1.0;
+      const breath = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * (Math.PI * 2 / period));
       ctx.save();
-      ctx.shadowColor = '#FFD700';
-      ctx.shadowBlur = 14;
-      ctx.strokeStyle = '#FFD700';
-      ctx.lineWidth = 2;
+      // 1) 外晕: 大半径、低 alpha、最大 blur
+      ctx.shadowColor = baseGlow;
+      ctx.shadowBlur = (isMax ? 16 : 10) + 6 * breath;
+      ctx.strokeStyle = baseGlow;
+      ctx.lineWidth = (isMax ? 2 : 1.5);
+      ctx.globalAlpha = 0.35 + 0.30 * breath;
       ctx.beginPath();
-      ctx.arc(cx, baseY - 6, CELL * 0.45, 0, Math.PI * 2);
+      ctx.arc(cx, baseY - 6, CELL * 0.46, 0, Math.PI * 2);
       ctx.stroke();
+      // 2) 内圈: 更紧、更高亮 (无 blur, 仅描边)
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.55 + 0.25 * breath;
+      ctx.lineWidth = (isMax ? 1.5 : 1);
+      ctx.beginPath();
+      ctx.arc(cx, baseY - 6, CELL * 0.40, 0, Math.PI * 2);
+      ctx.stroke();
+      // 3) lv3 极致: 再加一个金色小亮点
+      if (isMax){
+        ctx.globalAlpha = 0.65 + 0.30 * breath;
+        ctx.beginPath();
+        ctx.arc(cx, baseY - 6, CELL * 0.30, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
     }
 
@@ -694,7 +740,8 @@
       if (en.dead) continue;
       let sp = en.baseSpeed;
       if (en.slowT>0){ sp *= 0.5; en.slowT -= dt; }
-      if (en.stuck){ sp = 0; }
+      // [P11] stuck = warrior 群定身; stuckByHero = 撞英雄格停下 (不计入 stickCount)
+      if (en.stuck || en.stuckByHero){ sp = 0; }
       const [tx,ty] = cellCenter(en.nr, en.nc);
       const dx = tx-en.x, dy = ty-en.y, d = Math.hypot(dx,dy);
       const step = sp*CELL*dt*MOVE;
@@ -715,8 +762,19 @@
           if (g.baseHp<=0){ g.state=window.GameState.LOST; showEnd(false); }
           continue;
         }
-        const nx = nextStep(g.distField, g.map.grid, en.cr, en.cc, en.fr, en.fc);
-        if (nx){ en.nr = nx[0]; en.nc = nx[1]; }
+        const nx = nextStep(g.distField, g.map.grid, en.cr, en.cc, en.fr, en.fc, en);
+        if (nx){
+          // [P11] 下一步目标格是英雄所在: 撞 hero, 原地停下 (stuckByHero), 等英雄死/撤走
+          if (g.hero && g.hero.alive && nx[0] === g.hero.r && nx[1] === g.hero.c){
+            en.stuckByHero = true;
+            en.nr = en.cr; en.nc = en.cc;       // 不前进
+          } else {
+            en.stuckByHero = false;
+            en.nr = nx[0]; en.nc = nx[1];
+          }
+        }
+        // 离开 hero 格 → 解除
+        if (g.hero && (en.cr !== g.hero.r || en.cc !== g.hero.c)) en.stuckByHero = false;
       }
     }
     // 原地压缩（避免每帧分配新数组）
@@ -749,7 +807,8 @@
       tw.suppressedAir = (!target && airInRange);
       if (target){
         // 修复[原因3 硬化]：先重置冷却再开火，确保即使 fire 路径异常也不会每帧重试导致 cd 永不重置。
-        tw.cd = FIRE_INTERVAL;
+        // [P9] 每塔自己的 fireInterval (vs 旧全局 FIRE_INTERVAL), 让频率差异体现塔特色
+        tw.cd = tw.fireInterval;
         fireTower(tw, target, txc, tyc);
       }
     }
@@ -774,18 +833,25 @@
     const radius = h.radius*CELL;
     let stuckN = 0;
     let anyKill = false;
-    // 单次遍历：每个范围内敌人攻击英雄 + 英雄反击 + stuck
+    // 单次遍历：英雄主动反击范围内每个敌人 + 踩到 hero 格的敌人反伤英雄
+    //   [P11] 反伤仅当敌人在 hero 所在 cell (stuckByHero=true), 路过身边不扣血
     for (const en of g.enemies){
       if (en.dead) continue;
       const d = window.dist(en.x, en.y, hx, hy);
       if (d <= radius){
-        h.hp -= 4*dt;       // 每个敌人都咬英雄
+        // 英雄主动攻击: hp 减 dph 持续每秒
         en.hp -= h.dps*dt;
+        // 敌人反伤英雄: 仅当撞 hero 格 (stuckByHero), 按 attackPower/秒
+        if (en.stuckByHero){
+          h.hp -= en.attackPower * dt;
+        }
         if (en.hp<=0){
           en.dead=true;
           spawnFloat(en.x, en.y - 16, '+'+en.gold+'💰', '#FFB300');
           window.onKill(g, en);
           anyKill = true;
+          // 敌人死了，释放该格
+          en.stuckByHero = false;
         }
         if (stuckN < h.stickCount){ en.stuck = true; stuckN++; }
       } else {
@@ -797,6 +863,8 @@
       h.reviveTimer = 60;  // P1.3: 60s 倒计时 [PLACEHOLDER]
       h.hp = 0;
       flash('英雄阵亡，可花费复活');
+      // [P11] 英雄死了, 释放所有"撞 hero 格"卡住的敌人, 它们继续前行
+      for (const en of g.enemies) en.stuckByHero = false;
       showHeroPopup(h);
     }
     if (anyKill) SFX.kill();
@@ -850,38 +918,125 @@
     }
     // 英雄
     if (g.hero){
-      const hx = g.hero.c*CELL+CELL/2, hy = g.hero.r*CELL+CELL/2;
+      const h = g.hero;
+      const hx = h.c*CELL+CELL/2, hy = h.r*CELL+CELL/2;
+      const alive = h.alive;
+      const radius = h.radius*CELL;
+      const now = performance.now();
+
       // ---- P1.3 复活进度环 ----
-      if (!g.hero.alive && g.hero.reviveTimer > 0){
-        const progress = 1 - (g.hero.reviveTimer / 60);
-        // 背景环
+      if (!alive && h.reviveTimer > 0){
+        const progress = 1 - (h.reviveTimer / 60);
         ctx.save();
         ctx.beginPath();
         ctx.arc(hx, hy, CELL * 0.7, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(255,255,255,0.15)';
         ctx.lineWidth = 3;
         ctx.stroke();
-        // 进度弧
         ctx.beginPath();
         ctx.arc(hx, hy, CELL * 0.7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
         ctx.strokeStyle = progress > 0.9 ? '#4ECDC4' : '#F6AD55';
         ctx.lineWidth = 3;
         ctx.stroke();
-        // 剩余秒数
         ctx.font = 'bold 12px "Microsoft YaHei", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FFFFFF';
         ctx.strokeStyle = 'rgba(0,0,0,0.6)';
         ctx.lineWidth = 3;
-        ctx.strokeText(Math.ceil(g.hero.reviveTimer)+'s', hx, hy - CELL * 0.95);
-        ctx.fillText(Math.ceil(g.hero.reviveTimer)+'s', hx, hy - CELL * 0.95);
+        ctx.strokeText(Math.ceil(h.reviveTimer)+'s', hx, hy - CELL * 0.95);
+        ctx.fillText(Math.ceil(h.reviveTimer)+'s', hx, hy - CELL * 0.95);
         ctx.restore();
       }
       // ---- end P1.3 ----
-      ctx.font='26px serif';
-      ctx.fillText(g.hero.emoji, g.hero.c*CELL+12, g.hero.r*CELL+36);
-      ctx.strokeStyle='rgba(120,200,255,.4)';
-      ctx.beginPath(); ctx.arc(g.hero.c*CELL+CELL/2, g.hero.r*CELL+CELL/2, g.hero.radius*CELL, 0, 7); ctx.stroke();
+
+      // ---- 攻击范围底色 (类型配色) ----
+      if (alive){
+        ctx.save();
+        const fillColor = h.type === 'warrior' ? 'rgba(255,180,60,0.10)'
+                        : h.type === 'mage'    ? 'rgba(200,100,255,0.10)'
+                        : h.type === 'hunter'  ? 'rgba(80,220,140,0.10)'
+                        :                        'rgba(120,200,255,0.10)';
+        ctx.fillStyle = fillColor;
+        ctx.beginPath(); ctx.arc(hx, hy, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+
+      // ---- 类型专属光环 (alive 时) ----
+      if (alive){
+        ctx.save();
+        if (h.type === 'warrior'){
+          // 重拳震波: 单一脉冲圆环外扩, 短周期
+          const pulse = (now / 320) % 1;          // 0..1 循环
+          ctx.strokeStyle = `rgba(255,200,60,${0.65 * (1 - pulse)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(hx, hy, radius * (0.55 + pulse * 0.45), 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (h.type === 'mage'){
+          // 旋转的六芒星魔法阵
+          ctx.strokeStyle = 'rgba(220,90,255,0.75)';
+          ctx.lineWidth = 2;
+          const rot = now / 900;
+          const arms = 6;
+          const inner = radius * 0.22;
+          const outer = radius * 0.55;
+          ctx.beginPath();
+          for (let i = 0; i < arms * 2; i++){
+            const ang = (i / (arms * 2)) * Math.PI * 2 + rot;
+            const rr = (i % 2 === 0) ? outer : inner;
+            const px = hx + Math.cos(ang) * rr;
+            const py = hy + Math.sin(ang) * rr;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.stroke();
+        } else if (h.type === 'hunter'){
+          // 长程准星: 中心十字 + 呼吸外环
+          ctx.strokeStyle = 'rgba(80,220,140,0.85)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(hx - 8, hy); ctx.lineTo(hx + 8, hy);
+          ctx.moveTo(hx, hy - 8); ctx.lineTo(hx, hy + 8);
+          ctx.stroke();
+          const rDot = radius * 0.18 + Math.sin(now / 220) * 3;
+          ctx.beginPath();
+          ctx.arc(hx, hy, rDot, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // ---- 攻击范围圈 (边框) ----
+      ctx.strokeStyle = alive ? 'rgba(120,200,255,0.40)' : 'rgba(160,160,160,0.40)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(hx, hy, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // ---- emoji (居中到格子中心; 死亡时变灰) ----
+      ctx.font = '28px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.save();
+      if (!alive){
+        ctx.filter = 'grayscale(1)';
+        ctx.globalAlpha = 0.55;
+      }
+      ctx.fillText(h.emoji, hx, hy);
+      ctx.restore();
+
+      // ---- 血条 (与敌人一致; hero 在格内静止, 用 emoji 尺寸 size=28 作基准) ----
+      if (alive){
+        const size = 28;
+        const barW = Math.round(size * 0.8);
+        const barH = Math.max(3, Math.round(size * 0.08));
+        const barY = hy - size/2 - barH - 2;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(hx - barW/2 - 1, barY - 1, barW + 2, barH + 2);
+        const ratio = Math.max(0, h.hp / h.maxHp);
+        ctx.fillStyle = ratio > 0.5 ? '#48BB78' : (ratio > 0.25 ? '#FFD93D' : '#F56565');
+        ctx.fillRect(hx - barW/2, barY, barW * ratio, barH);
+      }
     }
 
     // 投射物（在敌人下方：飞向敌人的途中）
@@ -894,12 +1049,32 @@
       // 大小：18~40px，按 maxHp 平方根缩放，越强越大
       const size = Math.round(18 + Math.min(22, Math.sqrt(en.maxHp * 0.05) * 2));
       ctx.font = size + 'px serif';
-      // P2.1: tier 光环（boss=红, elite=金）
+      // P2.1 + P7: 高阶敌人 (elite/boss) 发光圈 — 替换原圆圈, 加呼吸脉动
+      //   boss 红光 (慢深沉), elite 金光 (快明亮); 三层叠加 (外晕 + 内圈 + 核心点)
       if (en.tier === 'boss' || en.tier === 'elite'){
+        const isBoss = en.tier === 'boss';
+        const baseGlow = isBoss ? '#FF4444' : '#FFD700';
+        const period = isBoss ? 1.4 : 0.9;
+        const breath = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * (Math.PI * 2 / period) + (isBoss ? 0.6 : 0));
+        const r = (size * 0.5) + 4;
         ctx.save();
-        ctx.strokeStyle = en.tier === 'boss' ? 'rgba(255,68,68,0.7)' : 'rgba(255,215,0,0.6)';
-        ctx.lineWidth = en.tier === 'boss' ? 3 : 2;
-        ctx.beginPath(); ctx.arc(en.x, en.y, (size * 0.5) + 4, 0, Math.PI * 2); ctx.stroke();
+        // 外晕
+        ctx.shadowColor = baseGlow;
+        ctx.shadowBlur = (isBoss ? 16 : 10) + 6 * breath;
+        ctx.strokeStyle = baseGlow;
+        ctx.lineWidth = isBoss ? 3 : 2;
+        ctx.globalAlpha = 0.45 + 0.30 * breath;
+        ctx.beginPath(); ctx.arc(en.x, en.y, r, 0, Math.PI * 2); ctx.stroke();
+        // 内圈 (无 blur, 提亮)
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 0.55 + 0.30 * breath;
+        ctx.lineWidth = isBoss ? 2 : 1.5;
+        ctx.beginPath(); ctx.arc(en.x, en.y, r - 3, 0, Math.PI * 2); ctx.stroke();
+        // 核心点 (boss 才加, 更强压迫感)
+        if (isBoss){
+          ctx.globalAlpha = 0.65 + 0.30 * breath;
+          ctx.beginPath(); ctx.arc(en.x, en.y, r - 6, 0, Math.PI * 2); ctx.stroke();
+        }
         ctx.restore();
       }
       ctx.fillText(en.emoji, en.x, en.y);
@@ -1312,9 +1487,7 @@
   // ---- P3.3: daily ----
   panels.daily = window.createDailyPanel();
   panels.daily.mount(document.getElementById('overlay'));
-  // ---- T7: 实例化 onboarding panel ----
-  panels.onboarding = window.createOnboardingPanel();
-  panels.onboarding.mount(document.getElementById('onboarding'));
+  // [P10] 移除 onboarding panel 实例化 (相关 panel/js/html/css 一并删除)
   // ---- P3.4: 默认英雄 ----
   window._selectedHeroType = 'warrior';
   // ---- P3.3: 全局 RNG 覆盖（每日挑战）----

@@ -8,7 +8,7 @@ A browser-based **Emoji tower-defense game** ("Emoji 塔防"). Pure vanilla HTML
 
 The core gameplay (map / balance / towers / enemies / hero / state machine / main loop / audio) is complete, and a full **playability layer** has been built on top of it across three milestones:
 
-- **P1 — 顺手级 (done):** onboarding cards, win/lose panels with failure tips, `node`-based test harness (`test_recipes`/`test_store`/`test_tier3`).
+- **P1 — 顺手级 (done):** win/lose panels with failure tips, `node`-based test harness (`test_recipes`/`test_store`/`test_tier3`). *[P10: onboarding cards 已移除]*
 - **P2 — 节奏与深度 (done):** pause + speed controls (`Space` / `1`/`2`/`3`), special-wave recipes, tier-3 ultimate tower upgrades, and a UI component layer (`store.js` state bus + `ui.js` action bus + `panels/`).
 - **P3 — 重玩与多英雄 (done):** achievement system (9 achievements, localStorage), daily challenge (UTC-seeded mulberry32 PRNG), and 3 hero types (warrior / mage / hunter) gated by achievements.
 
@@ -30,6 +30,7 @@ node tests/test_targeting.js    # targeting: range/air-filter/cooldown/suppressi
 node tests/test_recipes.js      # recipes: waves 1..10 map to expected recipeId (swarm..finale)
 node tests/test_store.js        # store: setState/subscribe, microtask-merged notify
 node tests/test_tier3.js        # tier3: every tower has a tier3 config; applyTier3 sets level 3 + perk
+node tests/test_hero.js         # [P11] hero: enemies.attackPower, upgrade 回满+maxHp 提升, 半血复活
 node tests/sim_playthrough.js   # headless full-playthrough sim for all 3 tiers (dev tool; 200-iter hard regression)
 node --check js/<file>.js       # syntax check a single JS file
 ```
@@ -50,7 +51,7 @@ audio → utils → map → towers → recipes → enemies → hero → game
       → store → ui
       → panels/toast → panels/hud → panels/menu → panels/towerbar
       → panels/end → panels/popup → panels/achievements
-      → panels/hero-select → panels/daily → panels/onboarding
+      → panels/hero-select → panels/daily
       → main
 ```
 
@@ -75,7 +76,7 @@ else { window.Symbol = Symbol; /* browser globals */ }
 **Module responsibilities:**
 - `utils.js` — `CFG` constants, `DIFFICULTY` (easy/normal/hard: `g` growth, `m` count mult, `f` gold mult), helpers (`dist`, `choice`, `randInt`, `clamp`).
 - `map.js` — `generateMap()` returns `{grid, start, end}`; `grid` values: `0`=empty, `1`=road, `9`=occupied. `countPaths` uses Dinic max-flow (vertex-split) to guarantee/count ≥2 vertex-disjoint paths. `canPlace(map,r,c)` rejects non-empty or out-of-range cells and any placement that drops paths below 2.
-- `towers.js` — `TOWER_TYPES` (6 towers). Each has `tier3: { cost, perk, perkName }` for the ultimate upgrade. `makeTower`, `upgradeTower` (L1→2 raises dps×1.35 / range×1.1; **L2→3 directly applies `applyTier3`** — one-click upgrade, no confirm step), `upgradeCost` (returns `tier3.cost` for L2 → L3, normal `cost * 0.8 * level` otherwise), `applyTier3` (sets `level=3`, `perk`, and an extra ×1.5 dps / ×1.15 range bump). Tower fields: `range` (grid cells), `dps`, `splash` (radius), `hitsAir`, `slow`, `dot`.
+- `towers.js` — `TOWER_TYPES` (6 towers). Each has `tier3: { cost, perk, perkName }` for the ultimate upgrade. `makeTower`, `upgradeTower` (L1→2: `damage×1.35, fireInterval×0.85, range×1.1`; **L2→3 directly applies `applyTier3`** — one-click upgrade, no confirm step), `upgradeCost` (returns `tier3.cost` for L2 → L3, normal `cost * 0.8 * level` otherwise), `applyTier3` (sets `level=3`, `perk`, and an extra ×1.5 damage / ×0.85 fireInterval / ×1.15 range bump). Tower fields: `range` (grid cells), `damage` (per-shot), `fireInterval` (seconds, **per-tower**, not global), `splash` (radius), `hitsAir`, `slow`, `dot`. Real-time DPS = `damage / fireInterval`.
 - `recipes.js` — `WAVE_RECIPES` maps each wave 1..10 to a **special-wave recipe** (`swarm`, `swarm_reinforce`, `elite_rush`, `standard`, `armor_break`, `finale`), each a list of `{family, tier, count}` slots. `getRecipeForWave(w)` resolves the recipe for a wave; `RECIPE_DISPLAY` holds the Chinese banner text. This is the data layer behind `enemies.spawnWave`.
 - `enemies.js` — `ENEMY_FAMILIES` (4: `swarm` ground/fast/low-hp, `shadow` air/medium, `demon` heavy-armor slow tank, `deep` air+mixed) and `ENEMY_TIERS` (3: `normal`×1, `elite` ×3 hp/×2.5 gold/⭐, `boss` ×10 hp/×10 gold/👑). `spawnWave(w,diff)` calls `getRecipeForWave(w)` and builds a `{family, tier}` list; `makeEnemy(family,wave,diff,tier)` scales HP by `g^(wave-1)` and applies family+tier multipliers. `air` enemies are hit only by `hitsAir` towers; `armor` reduces single-target damage only. `buildPathNodes` is a dead stub — pathing lives in `main.js`.
 - `hero.js` — `HERO_TYPES` (3: `warrior` 🦸 group-stun+mid DPS, `mage` 🧙 AoE true-DoT+slow [unlock `full_comp`], `hunter` 🏹 single-target burst+long range [unlock `pacifist`]). `makeHero`, `upgradeHero` (`stickCount = 1 + level`, +hp/dps/radius), `heroUpgradeCost`, `reviveHero` (manual or auto, **always 50% hp** by design decision — instant revive's only advantage is timing, not more hp).
@@ -83,7 +84,7 @@ else { window.Symbol = Symbol; /* browser globals */ }
 - `store.js` — pub/sub state bus (see above).
 - `ui.js` — action bus + `toast`/`modal`/`confirm` DOM helpers; `actions` enum.
 - `audio.js` — `SFX`: pure **Web Audio API** synthesized sound effects (no external assets). Per-tower fire timbres, hit/kill/place/upgrade/sell/revive/wave/baseHit/win/lose/countdown cues. Lazily creates `AudioContext` on first user gesture; mute persisted to `localStorage['td_muted']`.
-- `panels/*.js` — UI surfaces: `toast` (transient flash), `hud` (gold/hp/wave/diff + pause/×speed badge, subscribes to store), `menu` (difficulty + hero-select / daily / achievements entry buttons), `towerbar` (6 tower buttons with air/armor tags + hero-deploy button), `end` (win + failure post-mortem with tailored hints), `popup` (tower upgrade/sell, hero upgrade/revive), `achievements` (9 achievements, localStorage, `checkUnlocks(g)`), `hero-select` (3 heroes, locked until achievement), `daily` (UTC-seeded `mulberry32` PRNG; sets `window._dailySeed` + `window._setGlobalRng`), `onboarding` (3 rotating intro cards → countdown → first wave).
+- `panels/*.js` — UI surfaces: `toast` (transient flash), `hud` (gold/hp/wave/diff + pause/×speed badge, subscribes to store), `menu` (difficulty + hero-select / daily / achievements entry buttons), `towerbar` (6 tower buttons with air/armor tags + hero-deploy button), `end` (win + failure post-mortem with tailored hints), `popup` (tower upgrade/sell, hero upgrade/revive), `achievements` (9 achievements, localStorage, `checkUnlocks(g)`), `hero-select` (3 heroes, locked until achievement), `daily` (UTC-seeded `mulberry32` PRNG; sets `window._dailySeed` + `window._setGlobalRng`). *[P10: onboarding panel 已移除]*
 - `main.js` — integration + loop: BFS distance-field road pathing (`buildDistField`/`nextStep`, random branch at junctions), enemy/tower/hero update, rendering, HUD, input, and all `ui.on(...)` handlers (place/upgrade/sell/deploy hero/pause-speed/menus). Combat constants: `FIRE_INTERVAL=0.5`, shot damage = `dps*0.5`; armor rule is `target.armor>0 && tw.splash===0`; frost applies `slowT`; flame `dot` is applied as instant per-shot damage (not a true DoT timer). Tower cooldown uses a `1e-6` floating-point tolerance (`if (tw.cd > 1e-6) continue; tw.cd = 0;`). Non-hitsAir towers set `tw.suppressedAir` when only air enemies are in range (pulsing ✈️ badge — UX only). `dt` is clamped with `Math.max(0, …)`. **P2.3 speed model:** a fixed-step accumulator (`tickAcc += rawDt * speedMul`) advances the sim, so `speedMul` (1 / 1.5 / 2) does not get eaten by the `dt` clamp. Window keydown: `Space` toggles `paused`; `Digit1/2/3` set speed ×1/×1.5/×2.
 
 **Balance model:** `balance.js` is design-time only (used by `test_balance.js`); runtime economy is in `game.js`. `CFG.MAX_DPS` (462) is the space-capped DPS ceiling (`TOWER_SLOTS_CAP*BLENDED_DPS + HERO_DPS_BONUS`), not a hard game limit but the basis for the documented balance scores.

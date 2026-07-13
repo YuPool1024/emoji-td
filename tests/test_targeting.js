@@ -10,7 +10,7 @@ const { TOWER_TYPES, makeTower } = require('../js/towers.js');
 const { makeEnemy } = require('../js/enemies.js');
 
 const CELL = CFG.CELL;
-const FIRE_INTERVAL = 0.5;
+// [P9] FIRE_INTERVAL 已废弃; 用 tw.fireInterval 替代
 let pass = 0, fail = 0;
 function ok(name, cond, extra){ if (cond){ pass++; } else { fail++; console.log('  ✗ FAIL:', name, extra||''); } }
 
@@ -113,9 +113,9 @@ console.log('\n[原因3] 攻击冷却时间（是否无限延迟）');
     if (tw.cd > 1e-6) continue;  // 浮点容差
     tw.cd = 0;
     const r = pickTarget(tw, [makeEnemyAt('swarm', 5, 5)]);
-    if (r.target){ fired++; tw.cd = FIRE_INTERVAL; }
+    if (r.target){ fired++; tw.cd = tw.fireInterval; }
   }
-  ok('修复后50秒开火≈100（实际'+fired+'）', fired >= 99 && fired <= 101);
+  ok('修复后50秒开火≈125 (tesla fireInterval=0.4s, 实际'+fired+')', fired >= 123 && fired <= 127);
   // 对比：旧逻辑（无容差）会少开火
   const twOld = makeTower('tesla', 5, 5);
   let firedOld = 0;
@@ -123,7 +123,7 @@ console.log('\n[原因3] 攻击冷却时间（是否无限延迟）');
     twOld.cd -= dt;
     if (twOld.cd > 0) continue;  // 旧逻辑：无容差
     const r = pickTarget(twOld, [makeEnemyAt('swarm', 5, 5)]);
-    if (r.target){ firedOld++; twOld.cd = FIRE_INTERVAL; }
+    if (r.target){ firedOld++; twOld.cd = twOld.fireInterval; }
   }
   ok('旧逻辑开火更少（实际'+firedOld+'，证明原 bug）', firedOld < fired);
   // 无目标时 cd 不重置，但有目标出现后立即可开火（cd 已为负/零）
@@ -147,7 +147,7 @@ console.log('\n[原因4] 状态机（是否卡在非攻击状态）');
   const t = makeEnemyAt('swarm', 5, 5);
   ok('cd<=0 时立即进入目标选择', pickTarget(tw, [t]).target !== null);
   // 升级/出售不会让塔进入不可攻击状态
-  tw.level = 3; tw.dps = 100;
+  tw.level = 3; tw.damage = 100;
   ok('升级后仍可攻击', pickTarget(tw, [t]).target !== null);
 })();
 

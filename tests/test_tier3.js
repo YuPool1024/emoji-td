@@ -24,12 +24,14 @@ upgradeTower(tw2);
 assert.strictEqual(tw2.level, 3, 'L2→3 should reach level 3');
 assert.strictEqual(tw2.perk, 'triple', 'L2→3 should set perk');
 
-// upgradeTower L1→2 正常升级（dps/range 提升）
+// upgradeTower L1→2 正常升级（damage/fireInterval/range 综合提升）
 var tw3 = makeTower('arrow', 0, 0);
-var dpsBefore = tw3.dps;
+var dmgBefore = tw3.damage;
+var intBefore = tw3.fireInterval;
 upgradeTower(tw3);
 assert.strictEqual(tw3.level, 2);
-assert.ok(tw3.dps > dpsBefore, 'L1→2 should raise dps');
+assert.ok(tw3.damage > dmgBefore, 'L1→2 should raise damage');
+assert.ok(tw3.fireInterval < intBefore, 'L1→2 should shorten fireInterval (faster)');
 
 // 6 种塔的 tier3 全部能直接生效
 for (const k in TOWER_TYPES){
