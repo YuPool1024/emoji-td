@@ -1,43 +1,72 @@
-const ENEMY_TYPES = {
-  bug:    { emoji:'🐛', hp:20,  speed:1.0, gold:6,  air:false, armor:0 },
-  brute:  { emoji:'👹', hp:60,  speed:0.5, gold:14, air:false, armor:0 },
-  fly:    { emoji:'👾', hp:30,  speed:0.9, gold:10, air:true,  armor:0 },
-  armor:  { emoji:'🛡️', hp:100, speed:0.5, gold:18, air:false, armor:0.6 }, // armor: 单体伤害减免60%
-  rat:    { emoji:'🐀', hp:15,  speed:1.6, gold:5,  air:false, armor:0 },
-  elite:  { emoji:'🟣', hp:120, speed:1.0, gold:24, air:false, armor:0.2 },
-  boss:   { emoji:'💀', hp:600, speed:0.4, gold:80, air:false, armor:0.3 },
+// 4 个敌人家族：每族的图标链随波次递增（越往后越凶）
+const ENEMY_FAMILIES = {
+  swarm: {   // 虫群 —— 量大、速快、血少、地面
+    icons: ['🐛','🐜','🦗','🦉','🐍','🐺','👹'],
+    hp: 22, speed: 0.95, gold: 5, air: false, armor: 0,
+    count: 10
+  },
+  shadow: {  // 暗影 —— 飞行、中等血量、快
+    icons: ['🪰','🕷️','🦂','🦇','🐀','🧟','💀'],
+    hp: 35, speed: 0.85, gold: 12, air: true, armor: 0,
+    count: 3
+  },
+  demon: {   // 恶魔 —— 重甲坦克、慢、稀有
+    icons: ['🐛','🦋','🕸️','🧌','👺','👹','😈','🐉'],
+    hp: 85, speed: 0.50, gold: 22, air: false, armor: 0.30,
+    count: 1
+  },
+  deep: {    // 深渊 —— 水/空、精英混合
+    icons: ['🐚','🦐','🦀','🐙','🦑','🦈','🐋','👾'],
+    hp: 50, speed: 0.72, gold: 16, air: true, armor: 0.10,
+    count: 2
+  }
 };
 
-// 生成第w波敌人列表（数量随难度m与波数递增）
+const ENEMY_TIERS = {
+  normal: { hpMul: 1.0, speedMul: 1.0, goldMul: 1.0, size: 1.0, badge: '' },
+  elite:  { hpMul: 3.0, speedMul: 0.9, goldMul: 2.5, size: 1.2, badge: '⭐' },
+  boss:   { hpMul: 10.0, speedMul: 0.7, goldMul: 10.0, size: 1.5, badge: '👑' },
+};
+
+// 生成第 w 波敌人列表，使用配方
 function spawnWave(w, diffKey){
   var DIFF = (typeof module!=='undefined')?require('./utils.js').DIFFICULTY:window.DIFFICULTY;
+  var RECIPES = (typeof module!=='undefined')?require('./recipes.js'):window;
   const m = DIFF[diffKey].m;
+  const recipe = RECIPES.getRecipeForWave(w);
   const list = [];
-  const n = (base)=> Math.max(1, Math.round(base * m * (1 + 0.12*(w-1))));
-  for (let i=0;i<n(8);i++) list.push('bug');
-  for (let i=0;i<n(2);i++) list.push('brute');
-  for (let i=0;i<n(3);i++) list.push('fly');
-  for (let i=0;i<n(1);i++) list.push('armor');
-  for (let i=0;i<n(4);i++) list.push('rat');
-  if (w%3===0) list.push('elite');
-  if (w%5===0) list.push('boss');
+  const lateBonus = w >= 7 ? (1 + 0.08 * Math.min(w - 6, 4)) * (w >= 9 ? 1.1 : 1) : 1;
+  for (const slot of recipe.slots){
+    const n = Math.max(1, Math.round(slot.count * m * (1 + 0.12*(w-1)) * lateBonus));
+    for (let i = 0; i < n; i++) list.push({family: slot.family, tier: slot.tier});
+  }
   return list;
 }
 
-// 依据路线网格计算从起点到终点的节点序列（用于移动），岔路口随机选路在 move 时处理
-function buildPathNodes(grid){
-  // 简化：返回一条随机路径节点序列（move 时按当前位置选下一个相邻路面格，随机）
-  return grid;
-}
+function buildPathNodes(grid){ return grid; }
 
-function makeEnemy(typeKey, wave, diffKey){
-  const t = ENEMY_TYPES[typeKey];
+function makeEnemy(familyKey, wave, diffKey, tier){
+  const fam = ENEMY_FAMILIES[familyKey];
   var DIFF = (typeof module!=='undefined')?require('./utils.js').DIFFICULTY:window.DIFFICULTY;
+  const tierCfg = ENEMY_TIERS[tier] || ENEMY_TIERS.normal;
   const hpScale = Math.pow(DIFF[diffKey].g, wave-1);
-  const maxHp = Math.round(t.hp * hpScale);
-  return { type:typeKey, emoji:t.emoji, hp:maxHp, maxHp, speed:t.speed, baseSpeed:t.speed,
-           gold:t.gold, air:t.air, armor:t.armor, slowT:0, stuck:false, x:0, y:0, dead:false };
+  const maxHp = Math.round(fam.hp * hpScale * tierCfg.hpMul);
+  const iconIdx = Math.min(wave - 1, fam.icons.length - 1);
+  const baseIcon = fam.icons[iconIdx];
+  return {
+    type: familyKey,
+    tier: tier || 'normal',
+    badge: tierCfg.badge,
+    emoji: tierCfg.badge ? (tierCfg.badge + baseIcon) : baseIcon,
+    hp: maxHp, maxHp,
+    speed: fam.speed * tierCfg.speedMul, baseSpeed: fam.speed * tierCfg.speedMul,
+    gold: Math.round(fam.gold * tierCfg.goldMul),
+    air: fam.air, armor: fam.armor,
+    sizeMul: tierCfg.size,
+    slowT: 0, stuck: false,
+    x: 0, y: 0, dead: false,
+  };
 }
 
-if (typeof module!=='undefined') module.exports = { ENEMY_TYPES, spawnWave, makeEnemy, buildPathNodes };
-else { window.ENEMY_TYPES = ENEMY_TYPES; window.spawnWave = spawnWave; window.makeEnemy = makeEnemy; window.buildPathNodes = buildPathNodes; }
+if (typeof module!=='undefined') module.exports = { ENEMY_FAMILIES, ENEMY_TIERS, spawnWave, makeEnemy, buildPathNodes };
+else { window.ENEMY_FAMILIES = ENEMY_FAMILIES; window.ENEMY_TIERS = ENEMY_TIERS; window.spawnWave = spawnWave; window.makeEnemy = makeEnemy; window.buildPathNodes = buildPathNodes; }

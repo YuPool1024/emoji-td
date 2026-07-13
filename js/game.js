@@ -31,6 +31,8 @@ function startNextWave(g){
   g.leaksPerWave[g.wave] = 0;  // P1.2: 预初始化下一波漏怪计数为 0
   const list = (typeof module !== 'undefined') ? require('./enemies.js').spawnWave(g.wave, g.diff) : window.spawnWave(g.wave, g.diff);
   g.spawnQueue = list.map(t => t);
+  // P2.1: 记录当前波 recipeId
+  if (typeof window !== 'undefined'){ g.currentRecipeId = (window.getRecipeForWave && window.getRecipeForWave(g.wave).recipeId) || null; }
 }
 
 // 结算击杀奖励

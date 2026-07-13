@@ -63,21 +63,14 @@ function nextStep(field, grid, r, c, fromR, fromC){
 }
 
 // ---------- 一个 competent 的 AI 玩家 ----------
-// 在所有"与路面相邻且可建"的空格里，按类型循环放置，优先便宜高效塔，并随金币升级。
+// 在所有可通行格中找出可放置塔的格子（canPlace 保证 >=1 通路）
 function buildableCells(g){
   const R = CFG.ROWS, C = CFG.COLS;
   const out = [];
   for (let r=0;r<R;r++) for (let c=0;c<C;c++){
-    if (g.map.grid[r][c]!==0) continue;
-    if (!canPlace(g.map, r, c)) continue;
-    // 必须邻接路面格
-    let adj = false;
-    for (const [dr,dc] of [[0,1],[0,-1],[1,0],[-1,0]]){
-      const nr=r+dr, nc=c+dc;
-      if (nr<0||nc<0||nr>=R||nc>=C) continue;
-      if (g.map.grid[nr][nc]===1){ adj=true; break; }
-    }
-    if (adj) out.push({r,c});
+    if (g.map.grid[r][c]!==1) continue;       // 必须可通行
+    if (!canPlace(g.map, r, c)) continue;      // 必须不堵死通路
+    out.push({r,c});
   }
   return out;
 }
@@ -161,17 +154,21 @@ function updateEnemies(g, dt){
 function updateTowers(g, dt){
   for (const tw of g.towers){
     tw.cd -= dt;
-    if (tw.cd > 0) continue;
+    // 与 main.js 保持一致：浮点容差，避免残留极小正值导致每轮多等一帧
+    if (tw.cd > 1e-6) continue;
+    tw.cd = 0;
     let target=null, best=Infinity;
     const txc = tw.c*CELL+CELL/2, tyc = tw.r*CELL+CELL/2;
     for (const en of g.enemies){
       if (en.dead) continue;
-      if (en.air && !tw.hitsAir) continue;
       const d = dist(en.x, en.y, txc, tyc);
-      if (d <= tw.range*CELL && d < best){ best=d; target=en; }
+      if (d > tw.range*CELL) continue;
+      if (en.air && !tw.hitsAir) continue;
+      if (d < best){ best=d; target=en; }
     }
     if (target){
       const shot = tw.dps * FIRE_INTERVAL;
+      tw.cd = FIRE_INTERVAL;  // 先重置冷却（与 main.js 一致）
       if (target.armor>0 && tw.splash===0) target.hp -= shot*(1-target.armor);
       else target.hp -= shot;
       if (tw.slow>0) target.slowT = 1.0;
@@ -189,7 +186,6 @@ function updateTowers(g, dt){
           }
         }
       }
-      tw.cd = FIRE_INTERVAL;
     }
   }
 }
@@ -235,8 +231,10 @@ function simulate(diffKey, seedLog){
     steps++;
     spawnTimer -= DT;
     if (g.spawnQueue.length && spawnTimer<=0){
-      const type = g.spawnQueue.shift();
-      const en = makeEnemy(type, g.wave, g.diff);
+      const slot = g.spawnQueue.shift();
+      const family = typeof slot === 'string' ? slot : slot.family;
+      const tier = typeof slot === 'string' ? 'normal' : (slot.tier || 'normal');
+      const en = makeEnemy(family, g.wave, g.diff, tier);
       const [sr,sc] = g.map.start;
       en.cr = sr; en.cc = sc; en.fr = -1; en.fc = -1;
       en.x = sc*CELL+CELL/2; en.y = sr*CELL+CELL/2;

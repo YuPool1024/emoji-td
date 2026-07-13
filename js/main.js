@@ -230,8 +230,9 @@
     else if (window.ui) window.ui.toast(msg);
   }
 
-  function showWaveBanner(wave){
-    waveBanner = { wave, life: 1.6, maxLife: 1.6 };
+  function showWaveBanner(wave, recipeId){
+    const display = (typeof window !== 'undefined' && window.RECIPE_DISPLAY && recipeId && window.RECIPE_DISPLAY[recipeId]) || '';
+    waveBanner = { wave, display, life: 1.6, maxLife: 1.6 };
   }
 
   // ---------- 弹窗浮层（点击塔/英雄时出现）----------
@@ -455,7 +456,8 @@
       if (countdown <= 0 && countdownLastSec > 0){
         SFX.countdownGo();
         SFX.waveStart();
-        showWaveBanner(g.wave);
+        var _rid = (window.getRecipeForWave && window.getRecipeForWave(g.wave).recipeId) || '';
+        showWaveBanner(g.wave, _rid);
         countdownLastSec = 0;
       }
       return;
@@ -463,8 +465,10 @@
 
     spawnTimer -= dt;
     if (g.spawnQueue.length && spawnTimer<=0){
-      const type = g.spawnQueue.shift();
-      const en = window.makeEnemy(type, g.wave, g.diff);
+      const slot = g.spawnQueue.shift();
+      const family = typeof slot === 'string' ? slot : slot.family;
+      const tier = typeof slot === 'string' ? 'normal' : (slot.tier || 'normal');
+      const en = window.makeEnemy(family, g.wave, g.diff, tier);
       const [sr,sc] = g.map.start;
       en.cr = sr; en.cc = sc; en.fr = -1; en.fc = -1;
       en.x = sc*CELL+CELL/2; en.y = sr*CELL+CELL/2;
@@ -490,7 +494,7 @@
         showEnd(true);
       } else {
         window.startNextWave(g);
-        showWaveBanner(g.wave);
+        showWaveBanner(g.wave, g.currentRecipeId);
         SFX.waveStart();
       }
     }
@@ -827,6 +831,14 @@
       // 大小：18~40px，按 maxHp 平方根缩放，越强越大
       const size = Math.round(18 + Math.min(22, Math.sqrt(en.maxHp * 0.05) * 2));
       ctx.font = size + 'px serif';
+      // P2.1: tier 光环（boss=红, elite=金）
+      if (en.tier === 'boss' || en.tier === 'elite'){
+        ctx.save();
+        ctx.strokeStyle = en.tier === 'boss' ? 'rgba(255,68,68,0.7)' : 'rgba(255,215,0,0.6)';
+        ctx.lineWidth = en.tier === 'boss' ? 3 : 2;
+        ctx.beginPath(); ctx.arc(en.x, en.y, (size * 0.5) + 4, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
       ctx.fillText(en.emoji, en.x, en.y);
       // 血条：宽度和位置随大小动态变化
       const barW = Math.round(size * 0.8);
@@ -1078,9 +1090,14 @@
     ctx.strokeText('🌊 第 ' + waveBanner.wave + ' 波', 0, 0);
     ctx.fillStyle = '#fff';
     ctx.fillText('🌊 第 ' + waveBanner.wave + ' 波', 0, 0);
-    ctx.font = '20px system-ui, sans-serif';
-    ctx.fillStyle = '#2D3748';
-    ctx.fillText('敌人来袭！', 0, 40);
+    if (waveBanner.display) {
+      ctx.font = '22px "Microsoft YaHei", sans-serif';
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#000';
+      ctx.strokeText(waveBanner.display, 0, 44);
+      ctx.fillStyle = '#FFE66D';
+      ctx.fillText(waveBanner.display, 0, 44);
+    }
     ctx.restore();
   }
 
