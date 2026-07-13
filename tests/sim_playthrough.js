@@ -286,6 +286,23 @@ function main(){
     console.log(`[${d}] ${won?'WIN ':'LOSE'} baseHp=${best.baseHp}/20  towers=${best.towers} heroLv=${best.heroLevel} DPS≈${best.totalDps} 到达波=${best.waves}`);
   }
   console.log(allOk ? 'SIM: 三档均通关' : 'SIM: 存在未通关档（需校准）');
+
+  // P2: 200 次硬档回归
+  const N = 200;
+  let hardFail = 0;
+  let hardLeakMin = 20, hardWaves = 0;
+  for (let i = 0; i < N; i++){
+    const r = simulate('hard', i);
+    if (r.state !== GameState.WON) hardFail++;
+    hardLeakMin = Math.min(hardLeakMin, 20 - r.baseHp);
+    hardWaves = Math.max(hardWaves, r.waves);
+  }
+  if (hardFail > 0) {
+    console.log(`WARN: 硬档 ${N} 次中失败 ${hardFail} 次, 最多漏 ${hardLeakMin} 怪, 最远波 ${hardWaves}`);
+  } else {
+    console.log(`OK: 硬档 ${N} 次全部通关，最多漏 ${hardLeakMin} 怪`);
+  }
+
   return allOk;
 }
 
