@@ -14,6 +14,7 @@ function createGame(diffKey){
     wave: 0,
     towers: [], enemies: [], hero: null,
     selectedTowerType: null,
+    selectedHeroType: null,
     spawnQueue: [],
     // ---- P1.2 统计埋点 ----
     kills: 0,

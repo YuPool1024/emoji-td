@@ -1,15 +1,20 @@
-// 塔栏 panel: 6 种塔按钮 + 克制标签
+// 塔栏 panel: 6 种塔按钮 + 克制标签 + 英雄部署按钮
 (function(){
   'use strict';
 
   function createTowerbarPanel(){
     let parent = null;
-    let lastSelected = null;
-    function render(selectedTowerType){
+    let lastSig = '';
+
+    function render(selectedTowerType, selectedHeroType, heroDeployed){
       if (!parent) return;
-      if (selectedTowerType === lastSelected) return;
-      lastSelected = selectedTowerType;
+      const sig = (selectedTowerType || '') + '|' + (selectedHeroType || '') + '|' + (heroDeployed ? '1' : '0');
+      if (sig === lastSig) return;
+      lastSig = sig;
+
       parent.innerHTML = '';
+
+      // 6 种塔按钮
       for (const k in window.TOWER_TYPES){
         const t = window.TOWER_TYPES[k];
         const b = document.createElement('button');
@@ -26,10 +31,29 @@
         b.onclick = () => window.ui.emit(window.ui.actions.TOWER_SELECT, { type: k });
         parent.appendChild(b);
       }
+
+      // 英雄部署按钮
+      const heroType = window._selectedHeroType || 'warrior';
+      const hInfo = window.HERO_TYPES[heroType];
+      const heroBtn = document.createElement('button');
+      heroBtn.className = 'tower-btn hero-deploy-btn' + (selectedHeroType ? ' sel' : '');
+      heroBtn.type = 'button';
+      if (heroDeployed) {
+        heroBtn.disabled = true;
+        heroBtn.innerHTML = (hInfo ? hInfo.emoji : '🦸') + ' 已部署';
+      } else {
+        heroBtn.innerHTML = (hInfo ? hInfo.emoji : '🦸') + ' 部署' + (hInfo ? ' ' + (heroType === 'warrior' ? '战士' : heroType === 'mage' ? '法师' : '猎人') : '');
+        heroBtn.onclick = () => window.ui.emit(window.ui.actions.DEPLOY_HERO, {});
+      }
+      parent.appendChild(heroBtn);
     }
+
     return {
       mount(parentEl){ parent = parentEl; },
-      update(state){ render(state && state.selectedTowerType); },
+      update(state){
+        if (!state) return;
+        render(state.selectedTowerType, state.selectedHeroType, state.heroDeployed);
+      },
     };
   }
 

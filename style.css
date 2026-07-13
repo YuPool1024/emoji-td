@@ -170,6 +170,29 @@ body {
 .tower-cost  { color: var(--text-muted); font-size: clamp(11px, 1.2vh, 13px); white-space: nowrap; }
 .tower-btn.sel .tower-cost { color: var(--primary); font-weight: 700; }
 
+/* 英雄部署按钮 */
+.hero-deploy-btn {
+  margin-top: 10px;
+  border-color: transparent;
+  background: linear-gradient(135deg, #6C5CE7 0%, #a29bfe 100%) !important;
+  color: #fff !important;
+  font-weight: 700;
+}
+.hero-deploy-btn.sel {
+  border-color: #FFD700 !important;
+  box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.35), var(--shadow-sm) !important;
+}
+.hero-deploy-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  background: var(--surface-2) !important;
+  color: var(--text-muted) !important;
+}
+.hero-deploy-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 /* ========== 弹窗浮层（点击塔/英雄时出现）========== */
 #popup {
   position: absolute;

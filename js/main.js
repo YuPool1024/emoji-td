@@ -41,6 +41,20 @@
   let tickAcc = 0;
   const TICK_DT = 0.05;     // 固定时间步长
 
+  // canPlace 缓存：地图只在放塔/英雄时改变，避免每帧跑 Dinic
+  let _placeVer = 0;
+  const _placeCache = {};
+
+  function getCanPlace(map, r, c){
+    const k = r + ',' + c;
+    const e = _placeCache[k];
+    if (e && e[0] === _placeVer) return e[1];
+    let fit;
+    try { fit = window.canPlace(map, r, c); } catch(_err){ fit = false; }
+    _placeCache[k] = [_placeVer, fit];
+    return fit;
+  }
+
   // 障碍物 emoji 池（每片连通的障碍区域分配同一种）
   const OBSTACLE_EMOJIS = ['⛰️', '🗻', '🌋', '🌲', '🌵', '🪨', '🌊'];
 
@@ -134,6 +148,8 @@
 
   window.startGame = function(diff){
     SFX.ensure();                          // 解锁 AudioContext
+    // 预设倒计时防止 update() 在引导卡期间触发波次/生成敌人
+    countdown = 3600;
     document.getElementById('overlay').className = 'overlay';
     g = window.createGame(diff);
     g.map.grid[g.map.start[0]][g.map.start[1]] = 1;
@@ -144,7 +160,7 @@
 
     // 带引导卡的启动：非硬档出引导，硬档直接倒计时
     const startCountdown = () => {
-      countdown = 3.5;
+      countdown = 3.0;
       countdownLastSec = -1;
       window.startNextWave(g);
       buildTowerBar();
@@ -163,8 +179,12 @@
 
   // ---------- 塔选择栏 ----------
   function buildTowerBar(){
-    // T4: 转发到 towerbar panel
-    if (panels.towerbar) panels.towerbar.update({ selectedTowerType: g && g.selectedTowerType });
+    // T4: 转发到 towerbar panel，含英雄部署状态
+    if (panels.towerbar) panels.towerbar.update({
+      selectedTowerType: g && g.selectedTowerType,
+      selectedHeroType: g && g.selectedHeroType,
+      heroDeployed: g && !!g.hero,
+    });
   }
 
   // ---------- 鼠标在 canvas 中的位置（CSS 缩放下也准确）----------
@@ -193,17 +213,14 @@
       tryPlaceTower(r,c);
       return;
     }
+    // 部署英雄（需要先点英雄部署按钮激活模式）
+    if (g.selectedHeroType && g.map.grid[r][c]===1 && !g.hero){
+      tryPlaceHero(r, c);
+      return;
+    }
     // 点击空地：关闭弹窗，取消选中
     if (selected) selected = null;
     hidePopup();
-    // 放置英雄（免费、唯一）
-    if (g.map.grid[r][c]===1 && !g.hero){
-      if (!window.canPlace(g.map, r, c)){ flash('英雄会堵死通路'); return; }
-      g.hero = window.makeHero(window._selectedHeroType || 'warrior', r, c);
-      g.map.grid[r][c] = 9;
-      selected = { kind:'hero', ref:g.hero };
-      showHeroPopup(g.hero);
-    }
   });
 
   canvas.addEventListener('mousemove', (e)=>{
@@ -223,15 +240,31 @@
     g.towers.push(tw);
     g.towerBuildHistory.push(tw.type);  // P1.2: 建塔历史
     g.map.grid[r][c] = 9;
+    _placeVer++;
+    g.selectedTowerType = null; // 每次部署后清除选择，下次需重新点
     selected = { kind:'tower', ref:tw };
     showTowerPopup(tw);
     SFX.place();
     renderHUD();
+    buildTowerBar();
   }
 
   function flash(msg){
     if (panels.toast) panels.toast.show(msg);
     else if (window.ui) window.ui.toast(msg);
+  }
+
+  function tryPlaceHero(r, c){
+    if (g.map.grid[r][c]!==1){ flash('此处不可部署英雄'); return; }
+    if (!window.canPlace(g.map, r, c)){ flash('英雄会堵死通路'); return; }
+    g.hero = window.makeHero(g.selectedHeroType, r, c);
+    g.map.grid[r][c] = 9;
+    _placeVer++;
+    g.selectedHeroType = null;  // 清除部署模式
+    selected = { kind:'hero', ref:g.hero };
+    showHeroPopup(g.hero);
+    if (SFX && SFX.place) SFX.place();
+    buildTowerBar();
   }
 
   function showWaveBanner(wave, recipeId){
@@ -372,7 +405,12 @@
         p.angle = Math.atan2(dy, dx);
       }
     }
-    while (projectiles.length && projectiles[0].arrived) projectiles.shift();
+    // 原地压缩（跳过已到达的，避免从头逐个 shift）
+    let plive = 0;
+    for (let pi = 0; pi < projectiles.length; pi++){
+      if (!projectiles[pi].arrived) projectiles[plive++] = projectiles[pi];
+    }
+    projectiles.length = plive;
   }
 
   function spawnHitEffect(x, y, color, splash, type){
@@ -681,7 +719,12 @@
         if (nx){ en.nr = nx[0]; en.nc = nx[1]; }
       }
     }
-    g.enemies = g.enemies.filter(e=>!e.dead);
+    // 原地压缩（避免每帧分配新数组）
+    let live = 0;
+    for (let ei = 0; ei < g.enemies.length; ei++){
+      if (!g.enemies[ei].dead) g.enemies[live++] = g.enemies[ei];
+    }
+    g.enemies.length = live;
   }
 
   function updateTowers(dt){
@@ -731,23 +774,24 @@
     const radius = h.radius*CELL;
     let stuckN = 0;
     let anyKill = false;
+    // 单次遍历：每个范围内敌人攻击英雄 + 英雄反击 + stuck
     for (const en of g.enemies){
       if (en.dead) continue;
       const d = window.dist(en.x, en.y, hx, hy);
       if (d <= radius){
-        h.hp -= 4*dt;
+        h.hp -= 4*dt;       // 每个敌人都咬英雄
         en.hp -= h.dps*dt;
         if (en.hp<=0){
-          const g2 = en.gold;
           en.dead=true;
-          spawnFloat(en.x, en.y - 16, '+'+g2+'💰', '#FFB300');
+          spawnFloat(en.x, en.y - 16, '+'+en.gold+'💰', '#FFB300');
           window.onKill(g, en);
           anyKill = true;
         }
         if (stuckN < h.stickCount){ en.stuck = true; stuckN++; }
+      } else {
+        en.stuck = false;  // 离开范围 → 解定身
       }
     }
-    for (const en of g.enemies) if (window.dist(en.x, en.y, hx, hy) > radius) en.stuck = false;
     if (h.hp <= 0){
       h.alive = false;
       h.reviveTimer = 60;  // P1.3: 60s 倒计时 [PLACEHOLDER]
@@ -859,6 +903,16 @@
         ctx.restore();
       }
       ctx.fillText(en.emoji, en.x, en.y);
+      // tier 角标：⭐/👑 缩小到 1/4，置于右上角
+      if (en.badge){
+        const badgeSize = Math.round(size * 0.28);
+        ctx.save();
+        ctx.font = badgeSize + 'px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(en.badge, en.x + size * 0.35, en.y - size * 0.35);
+        ctx.restore();
+      }
       // 血条：宽度和位置随大小动态变化
       const barW = Math.round(size * 0.8);
       const barH = Math.max(3, Math.round(size * 0.08));
@@ -904,8 +958,8 @@
     const {r, c} = mouseGrid;
     const placeable = (g.map.grid[r][c] === 1);
     let canFit = placeable;
-    if (placeable && g.selectedTowerType){
-      try { canFit = window.canPlace(g.map, r, c); } catch(_) { canFit = false; }
+    if (placeable && (g.selectedTowerType || g.selectedHeroType)){
+      canFit = getCanPlace(g.map, r, c);
     }
     // 若已在该位置放了塔/英雄，则不显示预览
     const occupied = g.towers.some(t=>t.r===r && t.c===c) || (g.hero && g.hero.r===r && g.hero.c===c);
@@ -947,6 +1001,40 @@
       ctx.fillText(text, labelX, labelY);
       ctx.restore();
       // ---- end P1.1 ----
+    } else if (!occupied && g.selectedHeroType && !g.hero){
+      // 英雄部署预览
+      const hInfo = window.HERO_TYPES[g.selectedHeroType];
+      if (hInfo) {
+        ctx.save();
+        ctx.strokeStyle = '#6C5CE7';
+        ctx.setLineDash([6, 4]);
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(c*CELL+CELL/2, r*CELL+CELL/2, hInfo.radius*CELL, 0, 7);
+        ctx.stroke();
+        ctx.fillStyle = canFit ? 'rgba(108, 92, 231, 0.45)' : 'rgba(245, 101, 101, 0.45)';
+        ctx.fillRect(c*CELL+2, r*CELL+2, CELL-5, CELL-5);
+        ctx.strokeStyle = canFit ? '#6C5CE7' : '#F56565';
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 0.9;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(c*CELL+2, r*CELL+2, CELL-5, CELL-5);
+        ctx.restore();
+        // 悬停标签
+        ctx.save();
+        ctx.font = 'bold 13px "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        const labelX2 = c * CELL + CELL / 2;
+        const labelY2 = r * CELL - 8;
+        const hLabel = '🦸 范围' + hInfo.radius + '格';
+        const tw2 = ctx.measureText(hLabel).width;
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.fillRect(labelX2 - tw2/2 - 6, labelY2 - 15, tw2 + 12, 22);
+        ctx.fillStyle = '#6C5CE7';
+        ctx.fillText(hLabel, labelX2, labelY2);
+        ctx.restore();
+      }
     }
   }
 
@@ -1151,8 +1239,8 @@
       panels.end.show(win, g);
       if (win) SFX.win(); else SFX.lose();
     }
-    // P3.1: 胜利时检查成就
-    if (win && panels.achievements && panels.achievements.checkUnlocks){
+    // P3.1: 胜负都检查成就（非胜利门槛成就即使输掉也记录）
+    if (panels.achievements && panels.achievements.checkUnlocks){
       var _newOnes = panels.achievements.checkUnlocks(g);
       if (_newOnes.length && typeof window.ui !== 'undefined'){
         // 显示解锁提示
@@ -1248,6 +1336,17 @@
   ui.on(ui.actions.TOWER_SELECT, ({type}) => {
     if (!g) return;
     g.selectedTowerType = (g.selectedTowerType === type ? null : type);
+    g.selectedHeroType = null;   // 互斥：选塔时取消英雄部署模式
+    selected = null;
+    if (typeof hidePopup === 'function') hidePopup();
+    buildTowerBar();
+  });
+  // 英雄部署：点按钮进入部署模式，再点格子放英雄
+  ui.on(ui.actions.DEPLOY_HERO, () => {
+    if (!g) return;
+    if (g.hero) { flash('英雄已部署'); return; }
+    g.selectedHeroType = g.selectedHeroType ? null : (window._selectedHeroType || 'warrior');
+    g.selectedTowerType = null;  // 互斥
     selected = null;
     if (typeof hidePopup === 'function') hidePopup();
     buildTowerBar();

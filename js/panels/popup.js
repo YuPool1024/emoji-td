@@ -107,7 +107,23 @@
     }
 
     return {
-      mount(parentEl){ parent = parentEl; },
+      mount(parentEl){
+        parent = parentEl;
+        // 鼠标移出弹窗 → 延迟关闭（防误触）
+        let hideTimer = null;
+        parent.addEventListener('mouseenter', () => {
+          if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        });
+        parent.addEventListener('mouseleave', () => {
+          if (hideTimer) clearTimeout(hideTimer);
+          hideTimer = setTimeout(() => {
+            if (!parent) return;
+            parent.classList.remove('show');
+            parent.innerHTML = '';
+            hideTimer = null;
+          }, 200);
+        });
+      },
       show,
       hide,
     };

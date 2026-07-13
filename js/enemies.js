@@ -57,7 +57,7 @@ function makeEnemy(familyKey, wave, diffKey, tier){
     type: familyKey,
     tier: tier || 'normal',
     badge: tierCfg.badge,
-    emoji: tierCfg.badge ? (tierCfg.badge + baseIcon) : baseIcon,
+    emoji: baseIcon,
     hp: maxHp, maxHp,
     speed: fam.speed * tierCfg.speedMul, baseSpeed: fam.speed * tierCfg.speedMul,
     gold: Math.round(fam.gold * tierCfg.goldMul),
