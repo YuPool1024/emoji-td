@@ -96,6 +96,27 @@ function countPaths(map, capLimit=3){
   return flow;
 }
 
+// 拓宽可通行区域：把部分邻接路面的障碍格也变成路面，增大塔可放置空间。
+function widenRoad(grid){
+  const R=CFG.ROWS, C=CFG.COLS;
+  const out=[];
+  for (let r=0;r<R;r++) out.push([...grid[r]]);
+  const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+  for (let r=0;r<R;r++){
+    for (let c=0;c<C;c++){
+      if (grid[r][c]!==1) continue;
+      for (const [dr,dc] of dirs){
+        const nr=r+dr, nc=c+dc;
+        if (nr<0||nc<0||nr>=R||nc>=C) continue;
+        if (grid[nr][nc]!==0) continue;
+        // 概率拓宽，形成片状可通行区域
+        if (Math.random() < 0.42) out[nr][nc]=1;
+      }
+    }
+  }
+  return out;
+}
+
 function generateMap(){
   for (;;) {
     const grid = makeGrid();
@@ -104,29 +125,39 @@ function generateMap(){
     // 用禁止集强制第二条路不与第一条路重合（节点不相交 => 至少2条独立通路）。
     const blocked = new Set(p1.map(([r,c]) => r+','+c));
     const p2 = carvePath(grid, 0, 0, CFG.ROWS-1, CFG.COLS-1, blocked);
-    if (p2 && countPaths({grid}, 3) >= 2) {
-      return { grid, start:[0,0], end:[CFG.ROWS-1,CFG.COLS-1] };
+    if (!p2) continue;
+    // 拓宽可通行区域（增大安置塔的空间）
+    const wide = widenRoad(grid);
+    if (countPaths({grid:wide}, 3) >= 2) {
+      return { grid:wide, start:[0,0], end:[CFG.ROWS-1,CFG.COLS-1] };
     }
   }
 }
 
-// 放置校验：模拟在(r,c)放障碍后，起点->终点是否仍>=2通路
+// 放置校验：模拟在(r,c)放塔后，起点→终点是否仍>=1通路
 function canPlace(map, r, c){
-  if (r<0 || c<0 || r>=CFG.ROWS || c>=CFG.COLS) return false; // 越界保护
-  if (map.grid[r][c] !== 0) return false; // 只能放空地
-  map.grid[r][c] = 9; // 临时障碍
+  if (r<0 || c<0 || r>=CFG.ROWS || c>=CFG.COLS) return false;
+  if (map.grid[r][c] !== 1) return false; // 只能放在可通行格
+  if ((r===map.start[0] && c===map.start[1]) || (r===map.end[0] && c===map.end[1])) return false;
+  map.grid[r][c] = 9; // 临时占位
   try {
-    const n = countPaths(map, 3);
-    return n >= 2;
+    const n = countPaths(map, 2); // cap=2 探测 >=1 条通路
+    return n >= 1;
   } finally {
-    map.grid[r][c] = 0;
+    map.grid[r][c] = 1; // 恢复为可通行
   }
 }
 
+// 找到第一个可通行且非起终点的格子（可用于测试时验证 canPlace）
 function findFirstEmpty(map){
-  for (let r=0;r<CFG.ROWS;r++) for (let c=0;c<CFG.COLS;c++) if (map.grid[r][c]===0) return {r,c};
+  for (let r=0;r<CFG.ROWS;r++) for (let c=0;c<CFG.COLS;c++){
+    if (map.grid[r][c]!==1) continue;
+    if (r===map.start[0] && c===map.start[1]) continue;
+    if (r===map.end[0] && c===map.end[1]) continue;
+    return {r,c};
+  }
   return null;
 }
 
-if (typeof module!=='undefined') module.exports = { generateMap, countPaths, canPlace, findFirstEmpty, makeGrid, carvePath };
-else { window.generateMap = generateMap; window.countPaths = countPaths; window.canPlace = canPlace; window.findFirstEmpty = findFirstEmpty; window.makeGrid = makeGrid; window.carvePath = carvePath; }
+if (typeof module!=='undefined') module.exports = { generateMap, countPaths, canPlace, findFirstEmpty, makeGrid, carvePath, widenRoad };
+else { window.generateMap = generateMap; window.countPaths = countPaths; window.canPlace = canPlace; window.findFirstEmpty = findFirstEmpty; window.makeGrid = makeGrid; window.carvePath = carvePath; window.widenRoad = widenRoad; }
