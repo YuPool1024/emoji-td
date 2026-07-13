@@ -156,9 +156,16 @@
       const b = document.createElement('button');
       b.className = 'tower-btn' + (g && g.selectedTowerType===k ? ' sel':'');
       b.type = 'button';
+      // ---- P1.4 克制标签 ----
+      const airTag = t.hitsAir ? '<span class="tag tag-green">🛬✓</span>'
+                               : '<span class="tag tag-red">🛬✗</span>';
+      const armorTag = t.splash > 0 ? '<span class="tag tag-green">🛡️✓</span>'
+                                     : '<span class="tag tag-red">🛡️✗</span>';
+      // ---- end P1.4 ----
       b.innerHTML = '<span class="tower-emoji">'+t.emoji+'</span>'+
                     '<span>'+t.name+'</span>'+
-                    '<span class="tower-cost">💰'+t.cost+'</span>';
+                    '<span class="tower-cost">💰'+t.cost+'</span>'+
+                    '<span class="tower-tags">'+airTag+armorTag+'</span>';
       b.onclick = ()=>{
         if (!g) return;
         g.selectedTowerType = (g.selectedTowerType===k ? null : k);

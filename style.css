@@ -377,3 +377,9 @@ body {
 .end-hint { color: #F6AD55; font-size: 14px; margin-top: 8px; }
 .end-btns { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
 .end-btns button { padding: 8px 20px; font-size: 15px; }
+
+/* P1.4 塔克制标签 */
+.tower-tags { display: flex; gap: 2px; margin-top: 3px; font-size: 12px; }
+.tag { padding: 1px 4px; border-radius: 3px; }
+.tag-green { background: rgba(78,205,196,0.2); color: #4ECDC4; }
+.tag-red { background: rgba(245,101,101,0.2); color: #F56565; }
