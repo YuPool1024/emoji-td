@@ -149,6 +149,8 @@
       window.startNextWave(g);
       buildTowerBar();
       renderHUD();
+      // T10: 初始化 store
+      if (window.store) window.store.setState({ game: g, paused: false, speedMul: 1, selectedTowerType: null });
     };
     if (diff === 'hard' || !panels.onboarding) {
       startCountdown();

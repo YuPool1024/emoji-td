@@ -26,7 +26,13 @@
         status;
     }
     return {
-      mount(parentEl){ parent = parentEl; },
+      mount(parentEl){
+        parent = parentEl;
+        // T10: 订阅 store 自动更新
+        if (typeof window !== 'undefined' && window.store){
+          window.store.subscribe(state => { if (state.game) render(state); });
+        }
+      },
       update(state){ render(state); },
     };
   }
