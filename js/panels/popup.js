@@ -68,6 +68,16 @@
         } else {
           html += '<div class="popup-info" style="color:var(--success);font-weight:600;padding-top:6px;">✨ 存活中</div>';
         }
+      } else if (kind === 'tower-tier3') {
+        // P2.2 终极升级确认弹窗
+        const tier3Cost = opts.tier3Cost || 0;
+        const tier3Perk = opts.tier3Perk || '';
+        html = '<div class="popup-title">💎 终极升级</div>' +
+          '<div class="popup-info">' + ref.emoji + ' ' + ref.name + ' → Lv.3</div>' +
+          '<div class="popup-info"><span class="label">花费:</span>💰 ' + tier3Cost + '</div>' +
+          '<div class="popup-info"><span class="label">效果:</span>' + tier3Perk + '</div>' +
+          '<button class="popup-btn popup-cancel">取消</button>' +
+          '<button class="popup-btn popup-confirm" ' + (g.gold < tier3Cost ? 'disabled' : '') + '>确认升级</button>';
       }
 
       parent.innerHTML = html;
@@ -80,10 +90,14 @@
       const upBtn = parent.querySelector('.popup-upgrade');
       const sellBtn = parent.querySelector('.popup-sell');
       const revBtn = parent.querySelector('.popup-revive');
+      const confirmBtn = parent.querySelector('.popup-confirm');
+      const cancelBtn = parent.querySelector('.popup-cancel');
       if (kind === 'tower' && upBtn) upBtn.onclick = () => window.ui.emit(window.ui.actions.UPGRADE_TOWER, { tw: ref });
       if (kind === 'tower' && sellBtn) sellBtn.onclick = () => window.ui.emit(window.ui.actions.SELL_TOWER, { tw: ref });
       if ((kind === 'hero' || kind === 'hero-dead') && upBtn) upBtn.onclick = () => window.ui.emit(window.ui.actions.UPGRADE_HERO, { h: ref });
       if ((kind === 'hero' || kind === 'hero-dead') && revBtn) revBtn.onclick = () => window.ui.emit(window.ui.actions.REVIVE_HERO, { h: ref, instant: true });
+      if (kind === 'tower-tier3' && confirmBtn) confirmBtn.onclick = () => window.ui.emit(window.ui.actions.TIER3_UPGRADE, { tw: ref });
+      if (kind === 'tower-tier3' && cancelBtn) cancelBtn.onclick = () => window.ui.emit(window.ui.actions.CANCEL_TIER3, {});
     }
 
     function hide(){

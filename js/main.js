@@ -628,6 +628,19 @@
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(tw.emoji, cx, emojiCy);
 
+    // P2.2: tier-3 金边光圈
+    if (tw.level >= 3){
+      ctx.save();
+      ctx.shadowColor = '#FFD700';
+      ctx.shadowBlur = 14;
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, baseY - 6, CELL * 0.45, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     ctx.restore();
   }
 
@@ -1202,13 +1215,42 @@
   });
   ui.on(ui.actions.END_REPLAY, ({action}) => location.reload());
 
+  // ---- T9: 注册 tier-3 action ----
+  ui.on(ui.actions.SHOW_TIER3_CONFIRM, ({tw, cost, perk}) => {
+    if (!g) return;
+    if (panels.popup) panels.popup.show('tower-tier3', tw, {r: tw.r, c: tw.c, tier3Cost: cost, tier3Perk: perk});
+  });
+  ui.on(ui.actions.TIER3_UPGRADE, ({tw}) => {
+    if (!g) return;
+    const t = window.TOWER_TYPES[tw.type];
+    if (!t.tier3 || g.gold < t.tier3.cost) return;
+    g.gold -= t.tier3.cost;
+    if (window.applyTier3) window.applyTier3(tw);
+    flash('💎 ' + tw.name + ' 终极升级！');
+    if (SFX && SFX.upgrade) SFX.upgrade();
+    renderHUD();
+    if (panels.popup) panels.popup.hide();
+    showTowerPopup(tw);  // 重新显示塔面板
+  });
+  ui.on(ui.actions.CANCEL_TIER3, () => {
+    // 回到升级前状态
+    if (panels.popup) panels.popup.hide();
+  });
+
   // ---- T5: 注册 popup 按钮的 actions ----
   ui.on(ui.actions.UPGRADE_TOWER, ({tw}) => {
     if (!g) return;
     const uc = window.upgradeCost(tw);
     if (g.gold < uc) return;
+    const result = window.upgradeTower(tw);
+    // P2.2: L2→3 升级需弹确认
+    if (result && result.needsConfirm){
+      // 回滚金币，弹确认框
+      g.gold += uc;
+      if (window.ui) window.ui.emit(window.ui.actions.SHOW_TIER3_CONFIRM, {tw, cost: result.cost, perk: result.perkName});
+      return;
+    }
     g.gold -= uc;
-    window.upgradeTower(tw);
     flash('已升级');
     if (SFX && SFX.upgrade) SFX.upgrade();
     renderHUD();

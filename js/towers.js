@@ -1,27 +1,59 @@
 const TOWER_TYPES = {
-  arrow:  { emoji:'🏹', name:'箭塔', cost:50,  range:2.2, dps:14, splash:0,   hitsAir:false, slow:0,   color:'#9cd' },
-  tesla:  { emoji:'⚡', name:'电塔', cost:90,  range:1.8, dps:18, splash:1.2, hitsAir:true,  slow:0,   color:'#fd6' },
-  sniper: { emoji:'🎯', name:'狙塔', cost:120, range:5.0, dps:40, splash:0,   hitsAir:true,  slow:0,   color:'#f88' },
-  flame:  { emoji:'🔥', name:'火塔', cost:80,  range:1.5, dps:22, splash:0.8, hitsAir:false, slow:0,   color:'#f73', dot:6 },
-  frost:  { emoji:'❄️', name:'冰塔', cost:70,  range:1.8, dps:4,  splash:1.0, hitsAir:true,  slow:0.5, color:'#6cf' },
-  cannon: { emoji:'💣', name:'炮塔', cost:110, range:2.0, dps:30, splash:1.5, hitsAir:true,  slow:0,   color:'#888' },
+  arrow:  { emoji:'🏹', name:'箭塔', cost:50,  range:2.2, dps:14, splash:0,   hitsAir:false, slow:0,   color:'#9cd',
+            projType:'arrow', projColor:'#8B4513', projSpeed:620, instantHit:false,
+            tier3:{cost:150, perk:'triple', perkName:'三连射'} },
+  tesla:  { emoji:'⚡', name:'电塔', cost:90,  range:1.8, dps:18, splash:1.2, hitsAir:true,  slow:0,   color:'#fd6',
+            projType:'bolt',  projColor:'#FFE74C', projSpeed:1800, instantHit:true,
+            tier3:{cost:270, perk:'chain',  perkName:'链式闪电'} },
+  sniper: { emoji:'🎯', name:'狙塔', cost:120, range:5.0, dps:40, splash:0,   hitsAir:true,  slow:0,   color:'#f88',
+            projType:'laser', projColor:'#FF3E96', projSpeed:2400, instantHit:true,
+            tier3:{cost:360, perk:'pierce', perkName:'穿透射击'} },
+  flame:  { emoji:'🔥', name:'火塔', cost:80,  range:1.5, dps:22, splash:0.8, hitsAir:false, slow:0,   color:'#f73', dot:6,
+            projType:'fire',  projColor:'#FF6B1A', projSpeed:420, instantHit:false,
+            tier3:{cost:240, perk:'dot',    perkName:'真 DoT'} },
+  frost:  { emoji:'❄️', name:'冰塔', cost:70,  range:1.8, dps:4,  splash:1.0, hitsAir:true,  slow:0.5, color:'#6cf',
+            projType:'ice',   projColor:'#7FE0FF', projSpeed:520, instantHit:false,
+            tier3:{cost:210, perk:'freeze', perkName:'群冻'} },
+  cannon: { emoji:'💣', name:'炮塔', cost:110, range:2.0, dps:30, splash:1.5, hitsAir:true,  slow:0,   color:'#888',
+            projType:'ball',  projColor:'#2A2A2A', projSpeed:480, instantHit:false,
+            tier3:{cost:330, perk:'spread', perkName:'散射'} },
 };
 
 function makeTower(type, r, c){
   const t = TOWER_TYPES[type];
   return { type, r, c, emoji:t.emoji, name:t.name, cost:t.cost,
            range:t.range, dps:t.dps, splash:t.splash||0, hitsAir:!!t.hitsAir,
-           slow:t.slow||0, dot:t.dot||0, level:1, cd:0 };
+           slow:t.slow||0, dot:t.dot||0, level:1, cd:0,
+           projType:t.projType, projColor:t.projColor, projSpeed:t.projSpeed, instantHit:!!t.instantHit,
+           perk:null };
 }
 
 // 升级：提升dps与range，花费递增
 function upgradeTower(tw){
+  const t = TOWER_TYPES[tw.type];
+  // L2→3 特殊路径（终极升级）
+  if (tw.level === 2 && t.tier3){
+    return { needsConfirm: true, cost: t.tier3.cost, perk: t.tier3.perk, perkName: t.tier3.perkName };
+  }
   tw.level++;
   tw.dps = Math.round(tw.dps * 1.35);
   tw.range = +(tw.range * 1.1).toFixed(2);
   return tw;
 }
+
 function upgradeCost(tw){ return Math.round(tw.cost * 0.8 * tw.level); }
 
-if (typeof module!=='undefined') module.exports = { TOWER_TYPES, makeTower, upgradeTower, upgradeCost };
-else { window.TOWER_TYPES = TOWER_TYPES; window.makeTower = makeTower; window.upgradeTower = upgradeTower; window.upgradeCost = upgradeCost; }
+// 终极升级（跳过 upgradeTower 直接生效）
+function applyTier3(tw){
+  const t = TOWER_TYPES[tw.type];
+  if (!t.tier3) return false;
+  tw.level = 3;
+  tw.perk = t.tier3.perk;
+  // 终极升级额外数值加成
+  tw.dps = Math.round(tw.dps * 1.35 * 1.5);  // [PLACEHOLDER] tier-3 额外 50% dps
+  tw.range = +(tw.range * 1.1 * 1.15).toFixed(2);
+  return true;
+}
+
+if (typeof module!=='undefined') module.exports = { TOWER_TYPES, makeTower, upgradeTower, upgradeCost, applyTier3 };
+else { window.TOWER_TYPES = TOWER_TYPES; window.makeTower = makeTower; window.upgradeTower = upgradeTower; window.upgradeCost = upgradeCost; window.applyTier3 = applyTier3; }
