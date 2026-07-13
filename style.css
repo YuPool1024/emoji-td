@@ -383,3 +383,7 @@ body {
 .tag { padding: 1px 4px; border-radius: 3px; }
 .tag-green { background: rgba(78,205,196,0.2); color: #4ECDC4; }
 .tag-red { background: rgba(245,101,101,0.2); color: #F56565; }
+
+/* P2.3 暂停/倍速 HUD 样式 (前置) */
+.hud-item.pause { background: rgba(245,101,101,.3); color: #F56565; font-weight: 700; }
+.hud-item.speed { background: rgba(78,205,196,.3); color: #4ECDC4; font-weight: 700; }

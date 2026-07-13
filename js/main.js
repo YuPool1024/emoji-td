@@ -1159,15 +1159,9 @@
   }
 
   function renderHUD(){
-    const hud = document.getElementById('hud');
-    if (!g) return;
-    hud.innerHTML =
-      '<span class="hud-item gold">💰 '+g.gold+'</span>'+
-      '<span class="hud-item hp">❤️ '+g.baseHp+'</span>'+
-      '<span class="hud-item wave">🌊 '+g.wave+' / '+window.CFG.WAVES+'</span>'+
-      '<span class="hud-item diff">🎯 '+g.diffCfg.label+'</span>';
+    // 包装 hud panel —— T3 前向兼容. 全 state 传, panel 内做签名比对去重
+    if (panels.hud) panels.hud.update({ game: g });
   }
-
   function showEnd(win){
     const ov = document.getElementById('overlay');
     ov.className = 'overlay show';
@@ -1263,6 +1257,9 @@
   // ---- P2 UI: 实例化 toast panel ----
   panels.toast = window.createToastPanel();
   panels.toast.mount(document.getElementById('flash'));
+  // ---- T3: 实例化 hud panel ----
+  panels.hud = window.createHudPanel();
+  panels.hud.mount(document.getElementById('hud'));
 
   initMuteBtn();
   initMenu();
