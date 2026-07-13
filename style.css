@@ -422,3 +422,8 @@ body {
 .hero-info b { color: #fff; font-size: 16px; }
 .hero-info small { color: #aaa; font-size: 12px; }
 .hero-lock { color: #F56565; font-size: 12px; }
+
+/* P3.3 每日挑战 */
+.daily-menu { margin-top: 8px; }
+.daily-menu button { padding: 8px 24px; font-size: 16px; background: rgba(255,183,77,0.15); border: 1px solid #FFB74D; color: #FFB74D; border-radius: 10px; cursor: pointer; }
+.daily-menu button:hover { background: rgba(255,183,77,0.25); }

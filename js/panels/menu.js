@@ -15,6 +15,7 @@
         '<button data-diff="hard">💀 硬核</button>' +
         '</div>' +
         '<div class="hero-menu"><button data-hero-sel="show">🦸 英雄选择</button></div>' +
+        '<div class="daily-menu"><button data-daily="show">🎲 每日挑战</button></div>' +
         '<div class="ach-menu"><button data-action="achieve">🏆 成就</button></div>';
       const btns = parent.querySelectorAll('[data-diff]');
       btns.forEach(btn => {
@@ -22,6 +23,7 @@
       });
       parent.querySelector('[data-action="achieve"]').onclick = () => window.ui.emit(window.ui.actions.SHOW_ACHIEVEMENTS);
       parent.querySelector('[data-hero-sel="show"]').onclick = () => window.ui.emit(window.ui.actions.SHOW_HERO_SELECT);
+      parent.querySelector('[data-daily="show"]').onclick = () => window.ui.emit(window.ui.actions.SHOW_DAILY_CHALLENGE);
     }
     function hide(){
       if (!parent) return;

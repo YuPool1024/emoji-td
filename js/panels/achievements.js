@@ -57,9 +57,10 @@
           '</div>';
       }
       html += '</div>';
-      html += '<div class="end-btns"><button onclick="location.reload()">返回</button></div>';
+      html += '<div class="end-btns"><button data-action="back-menu">返回</button></div>';
       parent.className = 'overlay show';
       parent.innerHTML = html;
+      parent.querySelector('[data-action="back-menu"]').onclick = function(){ if (window.ui) window.ui.emit(window.ui.actions.SHOW_MAIN_MENU); };
     }
     return {
       mount: function(parentEl){ parent = parentEl; },

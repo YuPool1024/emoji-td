@@ -151,6 +151,8 @@
       renderHUD();
       // T10: 初始化 store
       if (window.store) window.store.setState({ game: g, paused: false, speedMul: 1, selectedTowerType: null });
+      // P3.3: 恢复 Math.random
+      if (typeof window._restoreRandom === 'function') window._restoreRandom();
     };
     if (diff === 'hard' || !panels.onboarding) {
       startCountdown();
@@ -1219,11 +1221,24 @@
   // ---- P3.4: hero-select ----
   panels.heroSelect = window.createHeroSelectPanel();
   panels.heroSelect.mount(document.getElementById('overlay'));
+  // ---- P3.3: daily ----
+  panels.daily = window.createDailyPanel();
+  panels.daily.mount(document.getElementById('overlay'));
   // ---- T7: 实例化 onboarding panel ----
   panels.onboarding = window.createOnboardingPanel();
   panels.onboarding.mount(document.getElementById('onboarding'));
   // ---- P3.4: 默认英雄 ----
   window._selectedHeroType = 'warrior';
+  // ---- P3.3: 全局 RNG 覆盖（每日挑战）----
+  var _savedRandom = null;
+  window._setGlobalRng = function(rng){
+    _savedRandom = Math.random;
+    Math.random = rng;
+    // 在 generateMap 之后恢复（startGame 末尾）
+  };
+  window._restoreRandom = function(){
+    if (_savedRandom) { Math.random = _savedRandom; _savedRandom = null; }
+  };
   // ---- P3.1: 成就 panel ----
   panels.achievements = window.createAchievementsPanel();
   panels.achievements.mount(document.getElementById('overlay'));
@@ -1264,6 +1279,9 @@
   ui.on(ui.actions.SHOW_ACHIEVEMENTS, () => { if (panels.achievements) panels.achievements.show(); });
   // ---- P3.4: 英雄选择 ----
   ui.on(ui.actions.SHOW_HERO_SELECT, () => { if (panels.heroSelect) panels.heroSelect.show(); });
+  // ---- P3: 主菜单/每日挑战 ----
+  ui.on(ui.actions.SHOW_MAIN_MENU, () => { if (panels.menu) panels.menu.show(); });
+  ui.on(ui.actions.SHOW_DAILY_CHALLENGE, () => { if (panels.daily) panels.daily.show(); });
 
   // ---- T5: 注册 popup 按钮的 actions ----
   ui.on(ui.actions.UPGRADE_TOWER, ({tw}) => {

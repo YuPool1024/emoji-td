@@ -41,7 +41,7 @@
           }
         };
       });
-      parent.querySelector('[data-action="back"]').onclick = function(){ if (panels && panels.menu) panels.menu.show(); };
+      parent.querySelector('[data-action="back"]').onclick = function(){ if (window.ui) window.ui.emit(window.ui.actions.SHOW_MAIN_MENU); };
     }
     return {
       mount: function(parentEl){ parent = parentEl; },
