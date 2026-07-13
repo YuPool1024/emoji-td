@@ -224,84 +224,48 @@
   const popupEl = document.getElementById('popup');
 
   function hidePopup(){
-    popupEl.classList.remove('show');
-    popupEl.innerHTML = '';
+    // T5: 转发到 popup panel
+    if (panels.popup) panels.popup.hide();
+    else { popupEl.classList.remove('show'); popupEl.innerHTML = ''; }
   }
 
   function positionPopup(r, c){
-    const canvasRect = canvas.getBoundingClientRect();
-    const areaRect = document.getElementById('canvas-area').getBoundingClientRect();
-    const scaleX = canvasRect.width / canvas.width;
-    const scaleY = canvasRect.height / canvas.height;
-    const tx = (canvasRect.left - areaRect.left) + (c * CELL + CELL/2) * scaleX;
-    const ty = (canvasRect.top  - areaRect.top ) + (r * CELL + CELL/2) * scaleY;
-    const pw = 230, ph = 260;
-    const aw = areaRect.width, ah = areaRect.height;
-    // 优先出现在右侧，空间不够时换左侧
-    let left = tx + CELL * scaleX + 10;
-    if (left + pw > aw - 6) left = tx - pw - CELL * scaleX - 10;
-    left = Math.max(4, Math.min(aw - pw - 4, left));
-    let top  = ty - ph / 2;
-    top  = Math.max(4, Math.min(ah - ph - 4, top));
-    popupEl.style.left = Math.round(left) + 'px';
-    popupEl.style.top  = Math.round(top)  + 'px';
+    // T5: popup panel 内部定位, 这里保留函数壳兼容老调用
+    if (panels.popup) {
+      // popup panel 接受 {r,c}; 重新 show 一次也行,但暂不重渲染
+      // 只更新 style 位置
+      const canvas2 = canvas;
+      const area = document.getElementById('canvas-area');
+      const cr = canvas2.getBoundingClientRect();
+      const ar = area.getBoundingClientRect();
+      const sx = cr.width / canvas2.width;
+      const sy = cr.height / canvas2.height;
+      const tx = (cr.left - ar.left) + (c * CELL + CELL/2) * sx;
+      const ty = (cr.top  - ar.top ) + (r * CELL + CELL/2) * sy;
+      const pw = 230, ph = 260;
+      const aw = ar.width, ah = ar.height;
+      let left = tx + CELL * sx + 10;
+      if (left + pw > aw - 6) left = tx - pw - CELL * sx - 10;
+      left = Math.max(4, Math.min(aw - pw - 4, left));
+      let top = ty - ph / 2;
+      top = Math.max(4, Math.min(ah - ph - 4, top));
+      popupEl.style.left = Math.round(left) + 'px';
+      popupEl.style.top  = Math.round(top) + 'px';
+    }
   }
 
   function showTowerPopup(tw){
-    const info = [
-      { l:'DPS',  v:tw.dps },
-      { l:'射程', v:tw.range+' 格' },
-      { l:'对空', v:tw.hitsAir?'✅':'❌' },
-      { l:'溅射', v:tw.splash>0?tw.splash+' 格':'-' },
-      { l:'减速', v:tw.slow>0?'✓':'-' },
-      { l:'dot',  v:tw.dot>0?tw.dot:'-' },
-    ];
-    const uc = window.upgradeCost(tw);
-    const refund = Math.round(tw.cost * 0.5);
-    let h = `<div class="popup-title">${tw.emoji} ${tw.name} Lv.${tw.level}</div>`;
-    for (const {l,v} of info) h += `<div class="popup-info"><span class="label">${l}:</span>${v}</div>`;
-    h += `<button class="popup-btn popup-upgrade" ${g.gold<uc?'disabled':''}>⬆️ 升级 (💰${uc})</button>`;
-    h += `<button class="popup-btn popup-sell">💰 出售 (退${refund})</button>`;
-    popupEl.innerHTML = h;
-    positionPopup(tw.r, tw.c);
-    popupEl.classList.add('show');
-    // 绑定按钮事件
-    const upBtn = popupEl.querySelector('.popup-upgrade');
-    if (upBtn) upBtn.onclick = ()=>{ if (g.gold<uc) return; g.gold-=uc; window.upgradeTower(tw); flash('已升级'); SFX.upgrade(); renderHUD(); showTowerPopup(tw); };
-    const selBtn = popupEl.querySelector('.popup-sell');
-    if (selBtn) selBtn.onclick = ()=>{ g.gold+=refund; g.map.grid[tw.r][tw.c]=1; g.towers=g.towers.filter(t=>t!==tw); if (selected&&selected.ref===tw) selected=null; hidePopup(); renderHUD(); flash('已出售'); SFX.sell(); };
+    // T5: 转发到 popup panel
+    if (!panels.popup) return;
+    window._gameRef = g;
+    panels.popup.show('tower', tw, { r: tw.r, c: tw.c });
   }
 
   function showHeroPopup(h){
-    const info = [
-      { l:'等级', v:h.level },
-      { l:'HP',   v:Math.round(h.hp)+'/'+h.maxHp },
-      { l:'DPS',  v:h.dps },
-      { l:'范围', v:h.radius+' 格' },
-      { l:'定身', v:h.stickCount+' 人' },
-    ];
-    const uc = window.heroUpgradeCost(h);
-    let ht = `<div class="popup-title">${h.emoji} 英雄 Lv.${h.level}</div>`;
-    for (const {l,v} of info) ht += `<div class="popup-info"><span class="label">${l}:</span>${v}</div>`;
-    ht += `<button class="popup-btn popup-upgrade" ${g.gold<uc?'disabled':''}>⬆️ 升级 (💰${uc})</button>`;
-    if (!h.alive){
-      // ---- P1.3 复活 popup：显示倒计时和半血说明 ----
-      const secLeft = Math.ceil(h.reviveTimer);
-      ht += `<div class="popup-info" style="color:var(--warning);font-weight:600;padding-top:6px;">💀 已阵亡 (半血复活)</div>`;
-      ht += `<div class="popup-info"><span class="label">⏳ 自动复活:</span>${secLeft}s 后 (半血)</div>`;
-      ht += `<button class="popup-btn popup-revive" ${g.gold<h.reviveCost?'disabled':''}>💖 立即复活 (💰${h.reviveCost}, 半血)</button>`;
-      // ---- end P1.3 ----
-    } else {
-      ht += `<div class="popup-info" style="color:var(--success);font-weight:600;padding-top:6px;">✨ 存活中</div>`;
-    }
-    popupEl.innerHTML = ht;
-    positionPopup(h.r, h.c);
-    popupEl.classList.add('show');
-    const upBtn = popupEl.querySelector('.popup-upgrade');
-    if (upBtn) upBtn.onclick = ()=>{ if (g.gold<uc) return; g.gold-=uc; window.upgradeHero(h); flash('英雄已升级'); SFX.upgrade(); renderHUD(); showHeroPopup(h); };
-    const revBtn = popupEl.querySelector('.popup-revive');
-    // ---- P1.3：手动复活传 instant=true，半血 ----
-    if (revBtn) revBtn.onclick = ()=>{ if (g.gold<h.reviveCost) return; g.gold-=h.reviveCost; window.reviveHero(h, true); flash('英雄已复活 (半血)'); SFX.revive(); renderHUD(); hidePopup(); };
+    // T5: 转发到 popup panel
+    if (!panels.popup) return;
+    window._gameRef = g;
+    panels.popup.show(h.alive ? 'hero' : 'hero-dead', h, { r: h.r, c: h.c });
   }
 
   // ---------- 伤害应用（投射物命中或即时）----------
@@ -1179,6 +1143,9 @@
   panels.towerbar.mount(document.getElementById('towerbar'));
   panels.end = window.createEndPanel();
   panels.end.mount(document.getElementById('overlay'));
+  // ---- T5: 实例化 popup panel ----
+  panels.popup = window.createPopupPanel();
+  panels.popup.mount(document.getElementById('popup'));
 
   // ---- T4: 注册 panel action 监听 ----
   ui.on(ui.actions.START_GAME, ({diff}) => { if (window.startGame) window.startGame(diff); });
@@ -1190,6 +1157,52 @@
     buildTowerBar();
   });
   ui.on(ui.actions.END_REPLAY, ({action}) => location.reload());
+
+  // ---- T5: 注册 popup 按钮的 actions ----
+  ui.on(ui.actions.UPGRADE_TOWER, ({tw}) => {
+    if (!g) return;
+    const uc = window.upgradeCost(tw);
+    if (g.gold < uc) return;
+    g.gold -= uc;
+    window.upgradeTower(tw);
+    flash('已升级');
+    if (SFX && SFX.upgrade) SFX.upgrade();
+    renderHUD();
+    showTowerPopup(tw);
+  });
+  ui.on(ui.actions.SELL_TOWER, ({tw}) => {
+    if (!g) return;
+    const refund = Math.round(tw.cost * 0.5);
+    g.gold += refund;
+    g.map.grid[tw.r][tw.c] = 1;
+    g.towers = g.towers.filter(t => t !== tw);
+    if (selected && selected.ref === tw) selected = null;
+    hidePopup();
+    renderHUD();
+    flash('已出售');
+    if (SFX && SFX.sell) SFX.sell();
+  });
+  ui.on(ui.actions.UPGRADE_HERO, ({h}) => {
+    if (!g) return;
+    const uc = window.heroUpgradeCost(h);
+    if (g.gold < uc) return;
+    g.gold -= uc;
+    window.upgradeHero(h);
+    flash('英雄已升级');
+    if (SFX && SFX.upgrade) SFX.upgrade();
+    renderHUD();
+    showHeroPopup(h);
+  });
+  ui.on(ui.actions.REVIVE_HERO, ({h, instant}) => {
+    if (!g) return;
+    if (g.gold < h.reviveCost) return;
+    g.gold -= h.reviveCost;
+    window.reviveHero(h, instant !== false);
+    flash('英雄已复活 (半血)');
+    if (SFX && SFX.revive) SFX.revive();
+    renderHUD();
+    hidePopup();
+  });
 
   initMuteBtn();
   initMenu();
