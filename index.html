@@ -7,18 +7,24 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="hud"></div>
-  <canvas id="game" width="800" height="500"></canvas>
-  <div id="towerbar"></div>
-  <div id="panel"></div>
-  <div id="flash"></div>
-  <div id="overlay"></div>
+  <div id="app">
+    <header id="hud" aria-label="游戏状态"></header>
+    <main id="canvas-area">
+      <canvas id="game" width="800" height="500" aria-label="战场"></canvas>
+      <div id="popup" aria-label="操作浮层"></div>
+    </main>
+    <nav id="towerbar" aria-label="防御塔选择"></nav>
+  </div>
+  <div id="flash" role="status" aria-live="polite"></div>
+  <div id="overlay" role="dialog" aria-modal="true"></div>
+  <script src="js/audio.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/map.js"></script>
   <script src="js/towers.js"></script>
   <script src="js/enemies.js"></script>
   <script src="js/hero.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
