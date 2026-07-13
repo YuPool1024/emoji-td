@@ -29,19 +29,25 @@ function makeTower(type, r, c){
 }
 
 // 升级：提升dps与range，花费递增
+// L1→2: 普通升级（dps×1.35, range×1.1）
+// L2→3: 终极升级, 直接应用 tier3 效果, 无需二次确认
 function upgradeTower(tw){
   const t = TOWER_TYPES[tw.type];
-  // L2→3 特殊路径（终极升级）
   if (tw.level === 2 && t.tier3){
-    return { needsConfirm: true, cost: t.tier3.cost, perk: t.tier3.perk, perkName: t.tier3.perkName };
+    applyTier3(tw);
+    return;
   }
   tw.level++;
   tw.dps = Math.round(tw.dps * 1.35);
   tw.range = +(tw.range * 1.1).toFixed(2);
-  return tw;
 }
 
-function upgradeCost(tw){ return Math.round(tw.cost * 0.8 * tw.level); }
+// 下一级升级的真实费用（L1→2 普通价; L2→3 即 tier3.cost）
+function upgradeCost(tw){
+  const t = TOWER_TYPES[tw.type];
+  if (tw.level === 2 && t.tier3) return t.tier3.cost;
+  return Math.round(t.cost * 0.8 * tw.level);
+}
 
 // 终极升级（跳过 upgradeTower 直接生效）
 function applyTier3(tw){

@@ -17,10 +17,6 @@
     SHOW_MAIN_MENU: 'SHOW_MAIN_MENU',        // P3 返回主菜单
     SHOW_DAILY_CHALLENGE: 'SHOW_DAILY_CHALLENGE', // P3.3
     DEPLOY_HERO: 'DEPLOY_HERO',                   // 部署英雄
-    // P2.2 tier-3
-    SHOW_TIER3_CONFIRM: 'SHOW_TIER3_CONFIRM',
-    TIER3_UPGRADE: 'TIER3_UPGRADE',
-    CANCEL_TIER3: 'CANCEL_TIER3',
   };
 
   const handlers = new Map();

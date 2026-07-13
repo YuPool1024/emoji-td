@@ -243,7 +243,7 @@
     _placeVer++;
     g.selectedTowerType = null; // 每次部署后清除选择，下次需重新点
     selected = { kind:'tower', ref:tw };
-    showTowerPopup(tw);
+    // [P4] 新塔放置后不自动弹 popup, 玩家点击塔时才显示
     SFX.place();
     renderHUD();
     buildTowerBar();
@@ -1353,27 +1353,6 @@
   });
   ui.on(ui.actions.END_REPLAY, ({action}) => location.reload());
 
-  // ---- T9: 注册 tier-3 action ----
-  ui.on(ui.actions.SHOW_TIER3_CONFIRM, ({tw, cost, perk}) => {
-    if (!g) return;
-    if (panels.popup) panels.popup.show('tower-tier3', tw, {r: tw.r, c: tw.c, tier3Cost: cost, tier3Perk: perk});
-  });
-  ui.on(ui.actions.TIER3_UPGRADE, ({tw}) => {
-    if (!g) return;
-    const t = window.TOWER_TYPES[tw.type];
-    if (!t.tier3 || g.gold < t.tier3.cost) return;
-    g.gold -= t.tier3.cost;
-    if (window.applyTier3) window.applyTier3(tw);
-    flash('💎 ' + tw.name + ' 终极升级！');
-    if (SFX && SFX.upgrade) SFX.upgrade();
-    renderHUD();
-    if (panels.popup) panels.popup.hide();
-    showTowerPopup(tw);  // 重新显示塔面板
-  });
-  ui.on(ui.actions.CANCEL_TIER3, () => {
-    // 回到升级前状态
-    if (panels.popup) panels.popup.hide();
-  });
   // ---- P3.1: 成就 ----
   ui.on(ui.actions.SHOW_ACHIEVEMENTS, () => { if (panels.achievements) panels.achievements.show(); });
   // ---- P3.4: 英雄选择 ----
@@ -1387,16 +1366,10 @@
     if (!g) return;
     const uc = window.upgradeCost(tw);
     if (g.gold < uc) return;
-    const result = window.upgradeTower(tw);
-    // P2.2: L2→3 升级需弹确认
-    if (result && result.needsConfirm){
-      // 回滚金币，弹确认框
-      g.gold += uc;
-      if (window.ui) window.ui.emit(window.ui.actions.SHOW_TIER3_CONFIRM, {tw, cost: result.cost, perk: result.perkName});
-      return;
-    }
     g.gold -= uc;
-    flash('已升级');
+    window.upgradeTower(tw);
+    // L2→3 走 tier3, 提示文案带终极 emoji
+    flash(tw.level === 3 ? ('💎 ' + tw.name + ' 终极升级！') : '已升级');
     if (SFX && SFX.upgrade) SFX.upgrade();
     renderHUD();
     showTowerPopup(tw);

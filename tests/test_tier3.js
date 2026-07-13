@@ -1,5 +1,5 @@
 var assert = require('assert');
-var { TOWER_TYPES, makeTower, upgradeTower, applyTier3 } = require('../js/towers.js');
+var { TOWER_TYPES, makeTower, upgradeTower, upgradeCost, applyTier3 } = require('../js/towers.js');
 
 // 每种塔必须有 tier3 配置
 for (const k in TOWER_TYPES){
@@ -17,28 +17,32 @@ applyTier3(tw);
 assert.strictEqual(tw.level, 3);
 assert.strictEqual(tw.perk, 'triple');
 
-// upgradeTower L2→3 返回 needsConfirm
+// upgradeTower L2→3 直接应用 tier3（单次调用, 无 confirm）
 var tw2 = makeTower('arrow', 0, 0);
 tw2.level = 2;
-var r = upgradeTower(tw2);
-assert.strictEqual(r.needsConfirm, true);
-assert.strictEqual(r.cost, TOWER_TYPES.arrow.tier3.cost);
-assert.strictEqual(r.perk, TOWER_TYPES.arrow.tier3.perk);
+upgradeTower(tw2);
+assert.strictEqual(tw2.level, 3, 'L2→3 should reach level 3');
+assert.strictEqual(tw2.perk, 'triple', 'L2→3 should set perk');
 
-// upgradeTower L1→2 正常升级
+// upgradeTower L1→2 正常升级（dps/range 提升）
 var tw3 = makeTower('arrow', 0, 0);
-tw3.level = 1;
-var r2 = upgradeTower(tw3);
-assert.strictEqual(r2.needsConfirm, undefined, 'L1→2 should be normal');
+var dpsBefore = tw3.dps;
+upgradeTower(tw3);
 assert.strictEqual(tw3.level, 2);
+assert.ok(tw3.dps > dpsBefore, 'L1→2 should raise dps');
 
-// 除箭塔外其他 5 种塔的 tier3 也正确
+// 6 种塔的 tier3 全部能直接生效
 for (const k in TOWER_TYPES){
   var tw4 = makeTower(k, 0, 0);
   tw4.level = 2;
-  var r3 = upgradeTower(tw4);
-  assert.ok(r3.needsConfirm, k + ' L2→3 should need confirm');
-  assert.strictEqual(r3.cost, TOWER_TYPES[k].tier3.cost, k + ' cost mismatch');
+  upgradeTower(tw4);
+  assert.strictEqual(tw4.level, 3, k + ' should reach L3');
+  assert.strictEqual(tw4.perk, TOWER_TYPES[k].tier3.perk, k + ' perk mismatch');
 }
+
+// upgradeCost: L1 → cost*0.8; L2 → tier3.cost
+assert.strictEqual(upgradeCost(makeTower('arrow', 0, 0)), Math.round(TOWER_TYPES.arrow.cost * 0.8));
+var tw5 = makeTower('arrow', 0, 0); tw5.level = 2;
+assert.strictEqual(upgradeCost(tw5), TOWER_TYPES.arrow.tier3.cost);
 
 console.log('ALL TIER3 TESTS PASS');
