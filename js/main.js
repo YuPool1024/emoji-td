@@ -693,42 +693,23 @@
     // —— emoji 置于塔顶正中（垛口之上）——
     ctx.font = emojiSize + 'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(tw.emoji, cx, emojiCy);
-
-    // P2.2 + P7: 等级发光 (lv1 无; lv2 主题色; lv3 终极金), 呼吸脉动
-    //   发光强度比单纯 shadowBlur 更稳: 多层半透明圆叠加, 单帧 drawCall 数量可控
+    // P2.2 + P7: 等级光晕 (lv2 主题色 / lv3 金), 贴合 emoji 轮廓, 呼吸脉动
+    //   用 shadowBlur 让光晕沿字形真实像素生成, 不再画完美圆
     if (tw.level >= 2){
       const isMax = tw.level >= 3;
-      const baseGlow = isMax ? '#FFD700' : towerColor;     // lv3 = 金; lv2 = 塔主题色
-      // 呼吸: 0..1 循环 (lv2 较快, lv3 更慢更深)
+      const baseGlow = isMax ? '#FFD700' : towerColor;
       const period = isMax ? 1.6 : 1.0;
       const breath = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * (Math.PI * 2 / period));
       ctx.save();
-      // 1) 外晕: 大半径、低 alpha、最大 blur
       ctx.shadowColor = baseGlow;
-      ctx.shadowBlur = (isMax ? 16 : 10) + 6 * breath;
-      ctx.strokeStyle = baseGlow;
-      ctx.lineWidth = (isMax ? 2 : 1.5);
-      ctx.globalAlpha = 0.35 + 0.30 * breath;
-      ctx.beginPath();
-      ctx.arc(cx, baseY - 6, CELL * 0.46, 0, Math.PI * 2);
-      ctx.stroke();
-      // 2) 内圈: 更紧、更高亮 (无 blur, 仅描边)
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 0.55 + 0.25 * breath;
-      ctx.lineWidth = (isMax ? 1.5 : 1);
-      ctx.beginPath();
-      ctx.arc(cx, baseY - 6, CELL * 0.40, 0, Math.PI * 2);
-      ctx.stroke();
-      // 3) lv3 极致: 再加一个金色小亮点
-      if (isMax){
-        ctx.globalAlpha = 0.65 + 0.30 * breath;
-        ctx.beginPath();
-        ctx.arc(cx, baseY - 6, CELL * 0.30, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      ctx.shadowBlur = (isMax ? 14 : 10) + 6 * breath;
+      ctx.globalAlpha = 0.9;
+      ctx.fillText(tw.emoji, cx, emojiCy);
+      ctx.fillText(tw.emoji, cx, emojiCy);
       ctx.restore();
     }
+    ctx.shadowBlur = 0;
+    ctx.fillText(tw.emoji, cx, emojiCy);   // crisp 本体
 
     ctx.restore();
   }
@@ -1050,35 +1031,23 @@
       // 大小：18~40px，按 maxHp 平方根缩放，越强越大
       const size = Math.round(18 + Math.min(22, Math.sqrt(en.maxHp * 0.05) * 2));
       ctx.font = size + 'px serif';
-      // P2.1 + P7: 高阶敌人 (elite/boss) 发光圈 — 替换原圆圈, 加呼吸脉动
-      //   boss 红光 (慢深沉), elite 金光 (快明亮); 三层叠加 (外晕 + 内圈 + 核心点)
+      // P2.1 + P7: 高阶敌人 (elite/boss) 贴合 emoji 轮廓的发光, 不再画完美圆
+      //   boss 红光 (慢深沉), elite 金光 (快明亮); 用 shadowBlur 让光晕沿字形真实像素生成
       if (en.tier === 'boss' || en.tier === 'elite'){
         const isBoss = en.tier === 'boss';
         const baseGlow = isBoss ? '#FF4444' : '#FFD700';
         const period = isBoss ? 1.4 : 0.9;
         const breath = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * (Math.PI * 2 / period) + (isBoss ? 0.6 : 0));
-        const r = (size * 0.5) + 4;
         ctx.save();
-        // 外晕
         ctx.shadowColor = baseGlow;
-        ctx.shadowBlur = (isBoss ? 16 : 10) + 6 * breath;
-        ctx.strokeStyle = baseGlow;
-        ctx.lineWidth = isBoss ? 3 : 2;
-        ctx.globalAlpha = 0.45 + 0.30 * breath;
-        ctx.beginPath(); ctx.arc(en.x, en.y, r, 0, Math.PI * 2); ctx.stroke();
-        // 内圈 (无 blur, 提亮)
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 0.55 + 0.30 * breath;
-        ctx.lineWidth = isBoss ? 2 : 1.5;
-        ctx.beginPath(); ctx.arc(en.x, en.y, r - 3, 0, Math.PI * 2); ctx.stroke();
-        // 核心点 (boss 才加, 更强压迫感)
-        if (isBoss){
-          ctx.globalAlpha = 0.65 + 0.30 * breath;
-          ctx.beginPath(); ctx.arc(en.x, en.y, r - 6, 0, Math.PI * 2); ctx.stroke();
-        }
+        ctx.shadowBlur = (isBoss ? 14 : 10) + 6 * breath;
+        ctx.globalAlpha = 0.9;
+        ctx.fillText(en.emoji, en.x, en.y);
+        ctx.fillText(en.emoji, en.x, en.y);
         ctx.restore();
       }
-      ctx.fillText(en.emoji, en.x, en.y);
+      ctx.shadowBlur = 0;
+      ctx.fillText(en.emoji, en.x, en.y);   // crisp 本体
       // tier 角标：⭐/👑 缩小到 1/4，置于右上角
       if (en.badge){
         const badgeSize = Math.round(size * 0.28);
