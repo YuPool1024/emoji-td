@@ -1095,6 +1095,25 @@
     renderCountdown();
 
     renderHUD();
+    // P7: FPS 角标 (canvas 左上角; ≥50 绿, 20~50 黄, <20 红)
+    renderFps();
+  }
+
+  function renderFps(){
+    const v = Math.round(curFps);
+    const color = v >= 50 ? '#7CFC8A' : (v >= 20 ? '#FFD93D' : '#FF5A5A');
+    ctx.save();
+    ctx.font = 'bold 12px ui-monospace, Menlo, Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const label = v + ' FPS';
+    const pad = 5, x = 6, y = 6;
+    const w = ctx.measureText(label).width + pad * 2;
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(x, y, w, 18);
+    ctx.fillStyle = color;
+    ctx.fillText(label, x + pad, y + 4);
+    ctx.restore();
   }
 
   function renderHoverPreview(){
@@ -1417,10 +1436,23 @@
   }
 
   // ---------- 主循环 ----------
+  // P7: 渲染帧率上限 (避免高刷屏 120/144Hz 空烧 CPU); 同时监测实际 FPS 过低提示
+  const FRAME_MS = 1000 / 60;        // 渲染间隔下限 ≈ 16.67ms → 最高 60fps
+  let lowFpsStreak = 0;              // 连续「即时帧率 < 20fps」的帧数计数器
+  let perfWarnAt = 0;                // 上次性能告警时刻 (冷却用)
+  let curFps = 60;                   // 指数平滑后的实际 FPS (用于屏上显示)
+
   function loop(now){
+    // 高于 60Hz 的屏幕: 距上次渲染不足一帧, 跳过本次绘制, setTimeout 精确补到下一渲染点
+    const sinceRender = now - last;
+    if (sinceRender < FRAME_MS){
+      setTimeout(() => requestAnimationFrame(loop), FRAME_MS - sinceRender);
+      return;
+    }
     // 修复[原因3 硬化]：clamp 下界为 0，防止系统时钟回退（now<last）产生负 dt，
     // 负 dt 会让 tw.cd -= dt 变成 cd 递增，导致冷却被无限拉长（塔永久不开火）。
-    const rawDt = Math.max(0, Math.min(0.1, (now - last) / 1000)); last = now;
+    //   sinceRender = 自上次实际渲染的真实墙钟时间, 与屏幕刷新率解耦 → 游戏速度恒定
+    const rawDt = Math.max(0, Math.min(0.1, sinceRender / 1000)); last = now;
     // ---- P2.3 累加器（固定步长，防止 dt *= speedMul 被 clamp 吃掉）----
     if (!paused){
       tickAcc += rawDt * speedMul;
@@ -1432,6 +1464,18 @@
       }
     }
     render();
+    // ---- P7: FPS 监测 (逐帧即时帧率) ----
+    //   改为「连续 10 帧即时帧率 < 20fps 才提示」, 避免切后台节能造成的瞬时低帧误报:
+    //   切回前台的第 1 帧 sinceRender = 后台时长(可能数十秒)→ instFps≈0 仅计 1 个 bad 帧,
+    //   第 2 帧即恢复正常 → 连续计数永远到不了 10, 不会误报。
+    const instFps = sinceRender > 0 ? 1000 / sinceRender : 60;
+    curFps = curFps * 0.9 + instFps * 0.1;          // 指数平滑: 显示更稳, 单帧尖刺不串色
+    if (instFps < 20) lowFpsStreak++; else lowFpsStreak = 0;
+    if (lowFpsStreak >= 10 && !paused && now - perfWarnAt > 8000){
+      flash('⚠ 主机性能过低 (' + Math.round(curFps) + ' FPS)');
+      perfWarnAt = now;
+      lowFpsStreak = 0;
+    }
     requestAnimationFrame(loop);
   }
 
@@ -1566,9 +1610,9 @@
     } else if (e.code === 'Digit1'){
       speedMul = 1; panels.hud.update({ game: g, paused, speedMul });
     } else if (e.code === 'Digit2'){
-      speedMul = 1.5; panels.hud.update({ game: g, paused, speedMul }); flash('×1.5 倍速');
-    } else if (e.code === 'Digit3'){
       speedMul = 2; panels.hud.update({ game: g, paused, speedMul }); flash('×2 倍速');
+    } else if (e.code === 'Digit3'){
+      speedMul = 4; panels.hud.update({ game: g, paused, speedMul }); flash('×4 倍速');
     }
   });
 

@@ -2,23 +2,19 @@
 const ENEMY_FAMILIES = {
   swarm: {   // 虫群 —— 量大、速快、血少、地面
     icons: ['🐛','🐜','🦗','🦉','🐍','🐺','👹'],
-    hp: 22, speed: 0.95, gold: 5, air: false, armor: 0,
-    count: 10
+    hp: 22, speed: 0.95, gold: 5, air: false, armor: 0
   },
   shadow: {  // 暗影 —— 飞行、中等血量、快
     icons: ['🪰','🕷️','🦂','🦇','🐀','🧟','💀'],
-    hp: 35, speed: 0.85, gold: 12, air: true, armor: 0,
-    count: 3
+    hp: 35, speed: 0.85, gold: 12, air: true, armor: 0
   },
   demon: {   // 恶魔 —— 重甲坦克、慢、稀有
     icons: ['🐛','🦋','🕸️','🧌','👺','👹','😈','🐉'],
-    hp: 85, speed: 0.50, gold: 22, air: false, armor: 0.30,
-    count: 1
+    hp: 85, speed: 0.50, gold: 22, air: false, armor: 0.30
   },
   deep: {    // 深渊 —— 水/空、精英混合
     icons: ['🐚','🦐','🦀','🐙','🦑','🦈','🐋','👾'],
-    hp: 50, speed: 0.72, gold: 16, air: true, armor: 0.10,
-    count: 2
+    hp: 50, speed: 0.72, gold: 16, air: true, armor: 0.10
   }
 };
 
