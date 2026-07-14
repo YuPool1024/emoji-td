@@ -117,47 +117,46 @@
   }
 
   // 给定当前格与来源格，返回下一个要走的路面格。
-  // 80% 概率走最优 (distance 减小) 方向, 20% 走其他可走方向; 单敌 20% 不会连续 2 次。
-  // en 是当前敌人对象, 用于记忆 _lastRand 状态; 可为 undefined (退化纯随机)
+  // [P14] per-enemy 固定行为:
+  //   - 80% optimal: 走 best (distance 严格减小)
+  //   - 20% wanderer: 走 distance ≤ current+1 (前进但非最优, 保证收敛不死循环)
   function nextStep(field, grid, r, c, fromR, fromC, en){
     const R = window.CFG.ROWS, C = window.CFG.COLS;
     const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
-    const best = [];     // distance 严格减小 (朝终点)
-    const others = [];   // 其他可走邻居 (绕远/平移)
+    const best = [];          // distance 严格减小 (最优)
+    const others = [];        // distance ≥ current (绕远/平移)
+    const forward = [];       // distance ≤ current+1 (wanderer 池: 前进一步)
     for (const [dr,dc] of dirs){
       const nr=r+dr, nc=c+dc;
       if (nr<0||nc<0||nr>=R||nc>=C) continue;
       if (grid[nr][nc]!==1) continue;
       if (nr===fromR && nc===fromC) continue;
-      if (field[nr][nc] < field[r][c]) best.push([nr,nc]);
+      const fd = field[nr][nc];
+      if (fd < field[r][c]) best.push([nr,nc]);
       else others.push([nr,nc]);
+      if (fd <= field[r][c] + 1) forward.push([nr,nc]);
     }
-    // 兜底: best 空 (撞塔死路), 把所有合法邻居当 others (强制 80 行为)
-    if (best.length === 0 && others.length === 0){
+    if (best.length === 0 && forward.length === 0){
       for (const [dr,dc] of dirs){
         const nr=r+dr, nc=c+dc;
         if (nr<0||nc<0||nr>=R||nc>=C) continue;
         if (grid[nr][nc]!==1) continue;
         if (nr===fromR && nc===fromC) continue;
-        others.push([nr,nc]);
+        forward.push([nr,nc]);
       }
-      if (others.length === 0) return null;
+      if (forward.length === 0) return null;
     }
-    // 80/20 决策 + 不连续两次 20% 保护
-    const lastRand = !!(en && en._lastRand);
-    const wantBest = lastRand ? true : (Math.random() < 0.80);
-    let pool, wasRand = false;
-    if (wantBest){
-      if (best.length > 0) pool = best;
-      else { pool = others; wasRand = false; }       // best 空 → 任何邻居都算"非随机"
+    const isWanderer = !!(en && en._wanderer);
+    let pool;
+    if (isWanderer){
+      // wanderer: 走 forward (前进 ≤+1, 可能绕路但不卡死)
+      pool = forward.length > 0 ? forward : best;
     } else {
-      if (others.length > 0){ pool = others; wasRand = true; }
-      else if (best.length > 0){ pool = best; wasRand = false; }  // 20% 但 others 空, 退化
-      else return null;
+      // optimal: 走 best (距离严格减小)
+      pool = best.length > 0 ? best : forward;  // 死路退化
     }
-    const nx = pool[Math.floor(Math.random() * pool.length)];
-    if (en) en._lastRand = wasRand;
-    return nx;
+    if (pool.length === 0) return null;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   // ---------- 菜单 ----------
@@ -536,7 +535,7 @@
       const en = window.makeEnemy(family, g.wave, g.diff, tier);
       const [sr,sc] = g.map.start;
       en.cr = sr; en.cc = sc; en.fr = -1; en.fc = -1;
-      en._lastRand = false;   // [P8] 寻路 80/20 状态, 防止连续 2 次走 20% 随机路径
+      // [P14] _wanderer 由 makeEnemy 一次性掷出 (20% wanderer / 80% optimal)
       en.x = sc*CELL+CELL/2; en.y = sr*CELL+CELL/2;
       const first = nextStep(g.distField, g.map.grid, sr, sc, -1, -1, en);
       en.nr = first ? first[0] : sr; en.nc = first ? first[1] : sc;
@@ -752,12 +751,14 @@
         en.fr = en.cr; en.fc = en.cc;
         en.cr = en.nr; en.cc = en.nc;
         if (en.cr===g.map.end[0] && en.cc===g.map.end[1]){
-          g.baseHp--; en.dead = true;
+          // [P12] 按 tier 决定漏怪扣血量: normal 1 / elite 3 / boss 5
+          const leakedDmg = en.tier === 'boss' ? 5 : (en.tier === 'elite' ? 3 : 1);
+          g.baseHp -= leakedDmg; en.dead = true;
           // ---- P1.2 统计 ----
           g.leaks++;
           g.leaksPerWave[g.wave] = (g.leaksPerWave[g.wave] || 0) + 1;
           // ---- end ----
-          spawnFloat(en.x, en.y, '-1❤️', '#F56565');
+          spawnFloat(en.x, en.y, '-'+leakedDmg+'❤️', '#F56565');
           SFX.baseHit();
           if (g.baseHp<=0){ g.state=window.GameState.LOST; showEnd(false); }
           continue;

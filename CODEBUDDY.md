@@ -31,6 +31,7 @@ node tests/test_recipes.js      # recipes: waves 1..10 map to expected recipeId 
 node tests/test_store.js        # store: setState/subscribe, microtask-merged notify
 node tests/test_tier3.js        # tier3: every tower has a tier3 config; applyTier3 sets level 3 + perk
 node tests/test_hero.js         # [P11] hero: enemies.attackPower, upgrade 回满+maxHp 提升, 半血复活
+node tests/test_pathfinding.js  # [P14] 寻路: per-enemy _wanderer 20% 比例; optimal/wanderer 行为分歧
 node tests/sim_playthrough.js   # headless full-playthrough sim for all 3 tiers (dev tool; 200-iter hard regression)
 node --check js/<file>.js       # syntax check a single JS file
 ```

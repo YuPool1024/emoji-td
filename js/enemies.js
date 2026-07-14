@@ -71,6 +71,7 @@ function makeEnemy(familyKey, wave, diffKey, tier){
     attackPower,                                          // [P11] 撞到英雄时每秒造成此伤害
     sizeMul: tierCfg.size,
     slowT: 0, stuck: false, stuckByHero: false,           // [P11] stuckByHero: 撞英雄格停下
+    _wanderer: Math.random() < 0.20,                      // [P14] spawn 时一次性决定: 20% 永久走随机, 80% 永久走最优
     x: 0, y: 0, dead: false,
   };
 }

@@ -424,6 +424,25 @@ body {
 .ach-detail b { font-size: 15px; color: #fff; }
 .ach-detail small { font-size: 12px; color: #aaa; }
 
+/* [P13] 成就 grid 容器: 2~3 列自适应 + 内部滚动, 确保返回按钮始终可见 */
+.ach-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  width: min(900px, 92vw);
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+  padding: 6px 12px;
+  margin: 0;
+}
+.ach-grid .ach-item {
+  margin: 0;                  /* grid 内不再需要上下 margin */
+  padding: 10px 8px;
+}
+.ach-grid::-webkit-scrollbar { width: 8px; }
+.ach-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 4px; }
+.ach-grid::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+
 /* P3.4 英雄选择 */
 .hero-menu { margin-top: 8px; }
 .hero-menu button { padding: 8px 24px; font-size: 16px; background: rgba(120,200,255,0.15); border: 1px solid #78C8FF; color: #78C8FF; border-radius: 10px; cursor: pointer; }

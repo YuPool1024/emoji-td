@@ -47,7 +47,8 @@
       if (!parent) return;
       var unlocked = loadAchievements();
       var html = '<h1>🏆 成就 <span style="font-size:16px;opacity:0.7;">' + unlocked.length + '/' + ACHIEVEMENTS.length + '</span></h1>';
-      html += '<div class="end-stats" style="margin:8px 0;">';
+      // [P13] ach-grid 专用 grid 类: 2~3 列自适应 (grid auto-fit minmax), 内部纵向滚动, 返回按钮始终可见
+      html += '<div class="ach-grid">';
       for (var i = 0; i < ACHIEVEMENTS.length; i++){
         var a = ACHIEVEMENTS[i];
         var done = unlocked.indexOf(a.id) !== -1;

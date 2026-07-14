@@ -39,42 +39,39 @@ function buildDistField(grid, end){
   return field;
 }
 function nextStep(field, grid, r, c, fromR, fromC, en){
+  // [P14 mirror] per-enemy fixed; wanderer 走 forward (≤+1) 防死循环
   const R = CFG.ROWS, C = CFG.COLS;
   const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
   const best = [];
-  const others = [];
+  const forward = [];
   for (const [dr,dc] of dirs){
     const nr=r+dr, nc=c+dc;
     if (nr<0||nc<0||nr>=R||nc>=C) continue;
     if (grid[nr][nc]!==1) continue;
     if (nr===fromR && nc===fromC) continue;
-    if (field[nr][nc] < field[r][c]) best.push([nr,nc]);
-    else others.push([nr,nc]);
+    const fd = field[nr][nc];
+    if (fd < field[r][c]) best.push([nr,nc]);
+    if (fd <= field[r][c] + 1) forward.push([nr,nc]);
   }
-  if (best.length === 0 && others.length === 0){
+  if (best.length === 0 && forward.length === 0){
     for (const [dr,dc] of dirs){
       const nr=r+dr, nc=c+dc;
       if (nr<0||nc<0||nr>=R||nc>=C) continue;
       if (grid[nr][nc]!==1) continue;
       if (nr===fromR && nc===fromC) continue;
-      others.push([nr,nc]);
+      forward.push([nr,nc]);
     }
-    if (others.length === 0) return null;
+    if (forward.length === 0) return null;
   }
-  const lastRand = !!(en && en._lastRand);
-  const wantBest = lastRand ? true : (Math.random() < 0.80);
-  let pool, wasRand = false;
-  if (wantBest){
-    if (best.length > 0) pool = best;
-    else { pool = others; wasRand = false; }
+  const isWanderer = !!(en && en._wanderer);
+  let pool;
+  if (isWanderer){
+    pool = forward.length > 0 ? forward : best;
   } else {
-    if (others.length > 0){ pool = others; wasRand = true; }
-    else if (best.length > 0){ pool = best; wasRand = false; }
-    else return null;
+    pool = best.length > 0 ? best : forward;
   }
-  const nx = pool[Math.floor(Math.random() * pool.length)];
-  if (en) en._lastRand = wasRand;
-  return nx;
+  if (pool.length === 0) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 // ---------- 一个 competent 的 AI 玩家 ----------
@@ -159,7 +156,9 @@ function updateEnemies(g, dt){
       en.fr = en.cr; en.fc = en.cc;
       en.cr = en.nr; en.cc = en.nc;
       if (en.cr===g.map.end[0] && en.cc===g.map.end[1]){
-        g.baseHp--; en.dead = true;
+        // [P12 mirror] normal 1 / elite 3 / boss 5
+        const leakedDmg = en.tier === 'boss' ? 5 : (en.tier === 'elite' ? 3 : 1);
+        g.baseHp -= leakedDmg; en.dead = true;
         if (g.baseHp<=0){ g.state=GameState.LOST; }
         if (global.__DBG) DBG.leaks++;
         continue;
@@ -274,7 +273,7 @@ function simulate(diffKey, seedLog){
       const en = makeEnemy(family, g.wave, g.diff, tier);
       const [sr,sc] = g.map.start;
       en.cr = sr; en.cc = sc; en.fr = -1; en.fc = -1;
-      en._lastRand = false;
+      // [P14] _wanderer 已在 makeEnemy 内一次性掷出, 不再需要 spawn 端初始化
       en.x = sc*CELL+CELL/2; en.y = sr*CELL+CELL/2;
       const first = nextStep(g.distField, g.map.grid, sr, sc, -1, -1, en);
       en.nr = first ? first[0] : sr; en.nc = first ? first[1] : sc;
